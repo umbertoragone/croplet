@@ -12,18 +12,21 @@ const SC_RY = (165  / 2796) * 100; //  5.901% — vertical border-radius
 interface PhoneFrameProps {
   src: string;
   alt: string;
-  width: number; // rendered width in px
+  width: number | string;
   className?: string;
   style?: React.CSSProperties;
 }
 
 export default function PhoneFrame({ src, alt, width, className, style }: PhoneFrameProps) {
-  const height = Math.round(width * (3036 / 1530));
-
   return (
     <div
       className={className}
-      style={{ position: "relative", width, height, ...style }}
+      style={{
+        position: "relative",
+        width,
+        aspectRatio: "1530 / 3036",
+        ...style,
+      }}
     >
       {/* Screenshot behind, clipped to the screen hole */}
       <div

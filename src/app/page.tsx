@@ -144,19 +144,19 @@ export default function Home() {
           </div>
 
           {/* Screenshots */}
-          <div className="flex gap-4 justify-center items-end shrink-0">
+          <div className="flex w-full max-w-[25rem] gap-3 sm:gap-4 justify-center items-end shrink-0">
             <PhoneFrame
               src="/screenshots/screen1.png"
               alt="Croplet home screen"
-              width={200}
+              width="min(42vw, 200px)"
               style={{ filter: "drop-shadow(0 24px 40px rgba(8,43,43,0.18))" }}
             />
             <PhoneFrame
               src="/screenshots/screen3.png"
               alt="Croplet label preview"
-              width={200}
+              width="min(42vw, 200px)"
               style={{
-                marginBottom: 32,
+                marginBottom: "min(8vw, 32px)",
                 filter: "drop-shadow(0 24px 40px rgba(8,43,43,0.18))",
               }}
             />
