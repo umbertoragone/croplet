@@ -155,7 +155,10 @@ export default function Home() {
               src="/screenshots/screen3.png"
               alt="Croplet label preview"
               width={200}
-              style={{ marginBottom: 32, filter: "drop-shadow(0 24px 40px rgba(8,43,43,0.18))" }}
+              style={{
+                marginBottom: 32,
+                filter: "drop-shadow(0 24px 40px rgba(8,43,43,0.18))",
+              }}
             />
           </div>
         </section>
@@ -326,7 +329,6 @@ export default function Home() {
                 alt="Download on the App Store"
                 width={160}
                 height={53}
-                className="brightness-0 invert"
               />
             </a>
           </div>
