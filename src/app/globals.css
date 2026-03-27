@@ -16,3 +16,15 @@ body {
   font-family: var(--font-geist-sans), "Helvetica Neue", Helvetica, Arial, sans-serif;
   color: #16302b;
 }
+
+.pdf-preview-document,
+.pdf-preview-document > div,
+.pdf-preview-page {
+  width: 100%;
+}
+
+.pdf-preview-page canvas {
+  display: block;
+  width: 100% !important;
+  height: auto !important;
+}

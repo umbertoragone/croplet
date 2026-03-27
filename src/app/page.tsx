@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import PhoneFrame from "./components/PhoneFrame";
@@ -13,6 +14,19 @@ import {
 
 const APP_STORE_URL =
   "https://apps.apple.com/us/app/croplet/id6760548549?itscg=30200&itsct=apps_box_link&mttnsubad=6760548549";
+
+export const metadata: Metadata = {
+  metadataBase: new URL("https://croplet.app"),
+  title: "A4 to 4×6″ Label Cropper",
+  description:
+    "Croplet is the iOS app that automatically crops A4 shipping label PDFs to 4×6″, ready for thermal printing. Supports Poste Italiane, BRT, InPost, UPS, DHL, and more.",
+  openGraph: {
+    title: "Croplet — A4 to 4×6″ Label Cropper",
+    description:
+      "Automatically crop A4 shipping label PDFs to 4×6″ for thermal printing. On-device OCR, multi-carrier support, export to PDF or PNG.",
+    images: ["/icon.png"],
+  },
+};
 
 const features: { icon: LucideIcon; title: string; description: string }[] = [
   {
