@@ -4,6 +4,7 @@ import Link from "next/link";
 import { APP_STORE_URL } from "@/lib/app-store";
 import PhoneFrame from "@/components/PhoneFrame";
 import Header from "@/components/Header";
+import StandaloneLaunchRedirect from "./standalone-launch-redirect";
 import {
   ScanText,
   Truck,
@@ -75,6 +76,7 @@ export default function Home() {
           "radial-gradient(circle at top left, rgba(27,107,99,0.15), transparent 40%), linear-gradient(180deg, #eef6f3 0%, #f4f7f4 100%)",
       }}
     >
+      <StandaloneLaunchRedirect />
       <Header currentPath="/" appStoreUrl={APP_STORE_URL} />
 
       <main className="flex-1">

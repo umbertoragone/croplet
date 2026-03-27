@@ -6,7 +6,8 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "Croplet",
     description:
       "Croplet Web converts A4 shipping labels into 4×6 thermal-printer labels in your browser.",
-    start_url: "/",
+    start_url: "/web",
+    scope: "/web",
     display: "standalone",
     background_color: "#f3efe6",
     theme_color: "#14322f",

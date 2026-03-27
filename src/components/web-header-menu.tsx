@@ -43,23 +43,15 @@ export default function WebHeaderMenu({ children }: WebHeaderMenuProps) {
       return;
     }
 
-    function handlePointerDown(event: PointerEvent) {
-      if (!containerRef.current?.contains(event.target as Node)) {
-        closeMenu();
-      }
-    }
-
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         closeMenu();
       }
     }
 
-    document.addEventListener("pointerdown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen]);
@@ -92,7 +84,10 @@ export default function WebHeaderMenu({ children }: WebHeaderMenuProps) {
 
       {isMounted ? (
         <>
-          <div
+          <button
+            type="button"
+            aria-label="Close menu"
+            onClick={closeMenu}
             className={`fixed inset-0 z-20 bg-[#082b2b]/8 backdrop-blur-[2px] transition-opacity duration-200 ${
               isOpen ? "opacity-100" : "opacity-0"
             }`}

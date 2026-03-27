@@ -1686,10 +1686,10 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                           updateRecipientNameFontSize(recipientNameFontSize - 1)
                         }
                         disabled={controlsDisabled || !showRecipientName}
-                        className="size-6 shrink-0 rounded-full px-0"
+                        className="size-8 shrink-0 rounded-full px-0"
                         aria-label={messages.controls.decreaseRecipientNameSize}
                       >
-                        <Minus size={12} />
+                        <Minus size={14} />
                       </Button>
                       <input
                         type="number"
@@ -1713,10 +1713,10 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                           updateRecipientNameFontSize(recipientNameFontSize + 1)
                         }
                         disabled={controlsDisabled || !showRecipientName}
-                        className="size-6 shrink-0 rounded-full px-0"
+                        className="size-8 shrink-0 rounded-full px-0"
                         aria-label={messages.controls.increaseRecipientNameSize}
                       >
-                        <Plus size={12} />
+                        <Plus size={14} />
                       </Button>
                     </div>
                   </div>
