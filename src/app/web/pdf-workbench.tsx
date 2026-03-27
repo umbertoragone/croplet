@@ -69,12 +69,23 @@ type RecipientNameLayout = {
   initialFontSize: number;
 };
 
+type DetectedLabel = {
+  labelType: Exclude<LabelType, "manualEditor">;
+  useHalfPageBRT?: boolean;
+};
+
 type SliderWithDefaultNotchProps = React.ComponentProps<typeof Slider> & {
   notchValue: number;
 };
 
 const OUTPUT_PAGE_WIDTH = 288;
 const OUTPUT_PAGE_HEIGHT = 432;
+const INPOST_LOGO_REGION = {
+  x: 0.62,
+  y: 0.58,
+  width: 0.33,
+  height: 0.24,
+} as const;
 const POSTE_ITALIANE_RECIPIENT_REGION = {
   x: 0.27,
   y: 0.22,
@@ -118,6 +129,11 @@ const LABEL_OPTIONS: { value: LabelType; label: string }[] = [
   { value: "dhl", label: "DHL" },
   { value: "manualEditor", label: "Manual crop" },
 ];
+const DEFAULT_LABEL_TYPE = LABEL_OPTIONS[0]?.value ?? "posteItaliane";
+const BRT_RIF_PATTERN = /rif\s*\.\s*:\s*\d{8,12}/i;
+const BRT_RIF_MARKER_PATTERN = /\brif\./i;
+const BRT_TEN_DIGIT_PATTERN = /\b\d{10}\b/;
+const BRT_LOGO_PATTERN = /\bbrt\b/i;
 
 const BASE_PRESETS: Record<Exclude<LabelType, "brt">, CropPreset> = {
   posteItaliane: {
@@ -172,6 +188,157 @@ function normalizePosteItalianeText(value: string) {
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
     .toLowerCase();
+}
+
+function normalizeDetectedText(value: string) {
+  return normalizePosteItalianeText(value)
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function includesAnyKeyword(text: string, keywords: string[]) {
+  return keywords.some((keyword) => text.includes(keyword));
+}
+
+function isBrtLabel(text: string) {
+  const corpus = normalizePosteItalianeText(text);
+
+  if (BRT_RIF_PATTERN.test(corpus)) {
+    return true;
+  }
+
+  if (BRT_LOGO_PATTERN.test(corpus)) {
+    return true;
+  }
+
+  return (
+    BRT_RIF_MARKER_PATTERN.test(corpus) && BRT_TEN_DIGIT_PATTERN.test(corpus)
+  );
+}
+
+function detectLabelFromExtractedText(
+  text: string,
+  pageWidth: number,
+  pageHeight: number,
+): DetectedLabel | null {
+  const foldedText = normalizePosteItalianeText(text);
+  const normalizedText = normalizeDetectedText(text);
+
+  if (!foldedText && !normalizedText) {
+    return null;
+  }
+
+  const looksLikeInpostForm =
+    includesAnyKeyword(normalizedText, [
+      "shipment n",
+      "shipment no",
+      "shipment date",
+      "parcel n",
+      "parcel no",
+      "weight kg",
+      "volume l",
+    ]) &&
+    includesAnyKeyword(normalizedText, [
+      "receiver",
+      "sender",
+      "locker",
+      "24 7",
+      "24r",
+    ]);
+
+  if (looksLikeInpostForm) {
+    return { labelType: "inpostFamily" };
+  }
+
+  if (
+    includesAnyKeyword(normalizedText, [
+      "inpost",
+      "mondial relay",
+      "mondialrelay",
+      "hermes",
+      "paczkomat",
+      "punto pack",
+    ])
+  ) {
+    return { labelType: "inpostFamily" };
+  }
+
+  if (includesAnyKeyword(normalizedText, ["vinted go", "vintedgo"])) {
+    return { labelType: "vintedGo" };
+  }
+
+  if (isBrtLabel(foldedText)) {
+    return {
+      labelType: "brt",
+      useHalfPageBRT: pageHeight <= 1000 && pageWidth <= 800,
+    };
+  }
+
+  if (
+    normalizedText.includes("ups") ||
+    normalizedText.includes("united parcel service") ||
+    /\b1z[a-z0-9]{6,}\b/i.test(text.replace(/\s+/g, ""))
+  ) {
+    return { labelType: "ups" };
+  }
+
+  if (
+    includesAnyKeyword(normalizedText, ["dhl", "express worldwide", "waybill"])
+  ) {
+    return { labelType: "dhl" };
+  }
+
+  if (
+    includesAnyKeyword(normalizedText, [
+      "poste italiane",
+      "poste delivery",
+      "postedelivery",
+      "postedeliverybusiness",
+      "sda",
+    ])
+  ) {
+    return { labelType: "posteItaliane" };
+  }
+
+  return null;
+}
+
+function cropCanvasRegion(
+  sourceCanvas: HTMLCanvasElement,
+  region: { x: number; y: number; width: number; height: number },
+) {
+  const regionCanvas = document.createElement("canvas");
+  regionCanvas.width = Math.max(
+    1,
+    Math.round(sourceCanvas.width * region.width),
+  );
+  regionCanvas.height = Math.max(
+    1,
+    Math.round(sourceCanvas.height * region.height),
+  );
+
+  const context = regionCanvas.getContext("2d");
+
+  if (!context) {
+    return null;
+  }
+
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, regionCanvas.width, regionCanvas.height);
+  context.drawImage(
+    sourceCanvas,
+    sourceCanvas.width * region.x,
+    sourceCanvas.height * region.y,
+    regionCanvas.width,
+    regionCanvas.height,
+    0,
+    0,
+    regionCanvas.width,
+    regionCanvas.height,
+  );
+
+  return regionCanvas;
 }
 
 function sanitizedNameCandidate(text: string) {
@@ -349,7 +516,8 @@ function SliderWithDefaultNotch({
   const notchPercent = ((notchValue - min) / (max - min)) * 100;
   const currentValue = Array.isArray(props.value) ? props.value[0] : undefined;
   const shouldShowNotch =
-    typeof currentValue !== "number" || Math.abs(currentValue - notchValue) > 0.0001;
+    typeof currentValue !== "number" ||
+    Math.abs(currentValue - notchValue) > 0.0001;
 
   return (
     <Slider
@@ -367,6 +535,11 @@ export default function PdfWorkbench() {
   const previewFrameRef = useRef<HTMLDivElement | null>(null);
   const ocrWorkerRef = useRef<TesseractWorker | null>(null);
   const recipientNameCacheRef = useRef<Map<string, string | null>>(new Map());
+  const labelDetectionCacheRef = useRef<Map<string, DetectedLabel | null>>(
+    new Map(),
+  );
+  const fileSelectionVersionRef = useRef(0);
+  const cropRequestVersionRef = useRef(0);
 
   const [file, setFile] = useState<File | null>(null);
   const [labelType, setLabelType] = useState<LabelType>("posteItaliane");
@@ -383,6 +556,7 @@ export default function PdfWorkbench() {
   const [isDragging, setIsDragging] = useState(false);
   const [isImportingUrl, setIsImportingUrl] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const controlsDisabled = file === null;
 
   const basePreset = useMemo(
     () => initialPreset(labelType, useHalfPageBRT),
@@ -394,8 +568,17 @@ export default function PdfWorkbench() {
       nextPreset: CropPreset,
       horizontalOffset: number,
       verticalOffset: number,
+      nextLabelType: LabelType,
+      nextShowRecipientName: boolean,
     ) => {
-      void cropPdf(nextFile, nextPreset, horizontalOffset, verticalOffset);
+      void cropPdf(
+        nextFile,
+        nextPreset,
+        horizontalOffset,
+        verticalOffset,
+        nextLabelType,
+        nextShowRecipientName,
+      );
     },
   );
   const isImportUrlValid = useMemo(() => {
@@ -458,9 +641,10 @@ export default function PdfWorkbench() {
       return;
     }
 
-    runCropPdf(file, preset, offsetX, offsetY);
+    runCropPdf(file, preset, offsetX, offsetY, labelType, showRecipientName);
   }, [
     file,
+    labelType,
     offsetX,
     offsetY,
     preset,
@@ -497,6 +681,7 @@ export default function PdfWorkbench() {
   }
 
   function clearSelectedPdf() {
+    fileSelectionVersionRef.current += 1;
     setFile(null);
     setImportUrl("");
     setPdfUrl((currentUrl) => {
@@ -528,7 +713,31 @@ export default function PdfWorkbench() {
     }
 
     recipientNameCacheRef.current.clear();
+    labelDetectionCacheRef.current.clear();
+    fileSelectionVersionRef.current += 1;
+    const selectionVersion = fileSelectionVersionRef.current;
+
+    setLabelType(DEFAULT_LABEL_TYPE);
+    setUseHalfPageBRT(true);
     setFile(nextFile);
+
+    void detectImportedLabelType(nextFile).then((detectedLabel) => {
+      if (fileSelectionVersionRef.current !== selectionVersion) {
+        return;
+      }
+
+      if (!detectedLabel) {
+        setLabelType(DEFAULT_LABEL_TYPE);
+        setUseHalfPageBRT(true);
+        return;
+      }
+
+      setLabelType(detectedLabel.labelType);
+
+      if (detectedLabel.labelType === "brt") {
+        setUseHalfPageBRT(detectedLabel.useHalfPageBRT ?? true);
+      }
+    });
   }
 
   async function handleImportFromUrl() {
@@ -602,6 +811,10 @@ export default function PdfWorkbench() {
     setRecipientNameFontSize(Math.max(10, Math.min(72, nextValue)));
   }
 
+  function fileCacheKey(nextFile: File) {
+    return `${nextFile.name}:${nextFile.size}:${nextFile.lastModified}`;
+  }
+
   async function getOcrWorker() {
     if (ocrWorkerRef.current) {
       return ocrWorkerRef.current;
@@ -622,11 +835,99 @@ export default function PdfWorkbench() {
     return worker;
   }
 
+  async function detectImportedLabelType(nextFile: File) {
+    const cacheKey = fileCacheKey(nextFile);
+    const cachedLabel = labelDetectionCacheRef.current.get(cacheKey);
+
+    if (cachedLabel !== undefined) {
+      return cachedLabel;
+    }
+
+    const arrayBuffer = await nextFile.arrayBuffer();
+    const pdf = await pdfjs.getDocument({ data: arrayBuffer.slice(0) }).promise;
+
+    try {
+      const firstPage = await pdf.getPage(1);
+      const textContent = await firstPage.getTextContent();
+      const pdfText = textContent.items
+        .map((item) => ("str" in item ? item.str : ""))
+        .join("\n");
+      const baseViewport = firstPage.getViewport({ scale: 1 });
+      const textMatch = detectLabelFromExtractedText(
+        pdfText,
+        baseViewport.width,
+        baseViewport.height,
+      );
+
+      if (textMatch) {
+        labelDetectionCacheRef.current.set(cacheKey, textMatch);
+        return textMatch;
+      }
+
+      const scale = 2.2;
+      const viewport = firstPage.getViewport({ scale });
+      const renderedCanvas = document.createElement("canvas");
+      renderedCanvas.width = Math.ceil(viewport.width);
+      renderedCanvas.height = Math.ceil(viewport.height);
+
+      const context = renderedCanvas.getContext("2d");
+
+      if (!context) {
+        labelDetectionCacheRef.current.set(cacheKey, null);
+        return null;
+      }
+
+      await firstPage.render({
+        canvas: renderedCanvas,
+        canvasContext: context,
+        viewport,
+      }).promise;
+
+      const worker = await getOcrWorker();
+      const { data } = await worker.recognize(renderedCanvas);
+      const ocrMatch = detectLabelFromExtractedText(
+        data.text,
+        baseViewport.width,
+        baseViewport.height,
+      );
+
+      const inpostRegionCanvas = cropCanvasRegion(
+        renderedCanvas,
+        INPOST_LOGO_REGION,
+      );
+
+      if (inpostRegionCanvas) {
+        const inpostRegionResult = await worker.recognize(inpostRegionCanvas);
+        const inpostRegionText = normalizeDetectedText(
+          inpostRegionResult.data.text,
+        );
+
+        if (
+          inpostRegionText.includes("inpost") ||
+          inpostRegionText.includes("mondial relay") ||
+          inpostRegionText.includes("mondialrelay")
+        ) {
+          const inpostMatch: DetectedLabel = { labelType: "inpostFamily" };
+          labelDetectionCacheRef.current.set(cacheKey, inpostMatch);
+          return inpostMatch;
+        }
+      }
+
+      labelDetectionCacheRef.current.set(cacheKey, ocrMatch);
+      return ocrMatch;
+    } catch {
+      labelDetectionCacheRef.current.set(cacheKey, null);
+      return null;
+    } finally {
+      pdf.destroy();
+    }
+  }
+
   async function extractPosteItalianeRecipientName(
     nextFile: File,
     nextPreset: CropPreset,
   ) {
-    const cacheKey = `${nextFile.name}:${nextFile.size}:${nextFile.lastModified}`;
+    const cacheKey = fileCacheKey(nextFile);
     const cachedRecipientName = recipientNameCacheRef.current.get(cacheKey);
 
     if (cachedRecipientName !== undefined) {
@@ -785,7 +1086,11 @@ export default function PdfWorkbench() {
     nextPreset: CropPreset,
     horizontalOffset: number,
     verticalOffset: number,
+    nextLabelType: LabelType,
+    nextShowRecipientName: boolean,
   ) {
+    cropRequestVersionRef.current += 1;
+    const requestVersion = cropRequestVersionRef.current;
     setIsProcessing(true);
 
     try {
@@ -899,7 +1204,7 @@ export default function PdfWorkbench() {
         rotate: degrees(pageRotate),
       });
 
-      if (labelType === "posteItaliane" && showRecipientName) {
+      if (nextLabelType === "posteItaliane" && nextShowRecipientName) {
         const recipientName = await extractPosteItalianeRecipientName(
           nextFile,
           nextPreset,
@@ -935,6 +1240,10 @@ export default function PdfWorkbench() {
       normalizedBytes.set(outputBytes);
       const blob = new Blob([normalizedBytes], { type: "application/pdf" });
 
+      if (cropRequestVersionRef.current !== requestVersion) {
+        return;
+      }
+
       setPdfUrl((currentUrl) => {
         if (currentUrl) {
           URL.revokeObjectURL(currentUrl);
@@ -943,6 +1252,10 @@ export default function PdfWorkbench() {
         return URL.createObjectURL(blob);
       });
     } catch (cropError) {
+      if (cropRequestVersionRef.current !== requestVersion) {
+        return;
+      }
+
       const message =
         cropError instanceof Error
           ? cropError.message
@@ -955,7 +1268,9 @@ export default function PdfWorkbench() {
         return "";
       });
     } finally {
-      setIsProcessing(false);
+      if (cropRequestVersionRef.current === requestVersion) {
+        setIsProcessing(false);
+      }
     }
   }
 
@@ -1243,6 +1558,7 @@ export default function PdfWorkbench() {
               <Select
                 value={labelType}
                 onValueChange={(value) => setLabelType(value as LabelType)}
+                disabled={controlsDisabled}
               >
                 <SelectTrigger id="label-type">
                   <SelectValue placeholder="Choose label type" />
@@ -1270,70 +1586,76 @@ export default function PdfWorkbench() {
                 <Switch
                   checked={useHalfPageBRT}
                   onCheckedChange={setUseHalfPageBRT}
+                  disabled={controlsDisabled}
                   className="shrink-0"
                 />
               </div>
             ) : null}
 
             {labelType === "posteItaliane" ? (
-              <div className="rounded-[1.2rem] border border-[#16302b10] bg-[#fcfdfc] px-4 py-3">
-                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
-                  <div className="min-w-0 space-y-1">
-                    <div className="text-sm font-medium text-[#16302b]">
-                      Show recipient name
+              <div className="rounded-[1.2rem] border border-[#16302b10] bg-[#fcfdfc] px-4">
+                <div className="grid divide-y divide-[#16302b10]">
+                  <div className="grid h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium leading-none text-[#16302b]">
+                        Show recipient name
+                      </div>
                     </div>
-                  </div>
-                  <Switch
-                    checked={showRecipientName}
-                    onCheckedChange={setShowRecipientName}
-                    className="shrink-0"
-                  />
-                </div>
-
-                <div className="flex flex-wrap justify-between items-center mt-4 border-t border-[#16302b10] pt-4">
-                  <div className="text-sm font-medium text-[#16302b]">
-                    Recipient name size
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() =>
-                        updateRecipientNameFontSize(recipientNameFontSize - 1)
-                      }
-                      disabled={!showRecipientName}
-                      className="size-8 shrink-0 px-0"
-                      aria-label="Decrease recipient name size"
-                    >
-                      <Minus size={12} />
-                    </Button>
-                    <input
-                      type="number"
-                      min={10}
-                      max={72}
-                      step={1}
-                      value={recipientNameFontSize}
-                      onChange={(event) =>
-                        updateRecipientNameFontSize(
-                          Number(event.target.value) || 18,
-                        )
-                      }
-                      disabled={!showRecipientName}
-                      className="w-10 h-8 appearance-none rounded-md border border-[#16302b18] bg-white px-2 text-center text-sm text-[#16302b] outline-none transition [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none placeholder:text-[#6a8680] focus:border-[#1b6b63] focus:ring-2 focus:ring-[#1b6b63]/15 disabled:cursor-not-allowed disabled:bg-[#16302b08] disabled:text-[#6a8680]"
-                      aria-label="Recipient name size adjustment"
+                    <Switch
+                      checked={showRecipientName}
+                      onCheckedChange={setShowRecipientName}
+                      disabled={controlsDisabled}
+                      className="shrink-0"
                     />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() =>
-                        updateRecipientNameFontSize(recipientNameFontSize + 1)
-                      }
-                      disabled={!showRecipientName}
-                      className="size-8 shrink-0 px-0"
-                      aria-label="Increase recipient name size"
-                    >
-                      <Plus size={12} />
-                    </Button>
+                  </div>
+
+                  <div className="grid h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium leading-none text-[#16302b]">
+                        Recipient name size
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() =>
+                          updateRecipientNameFontSize(recipientNameFontSize - 1)
+                        }
+                        disabled={controlsDisabled || !showRecipientName}
+                        className="size-6 shrink-0 rounded-full px-0"
+                        aria-label="Decrease recipient name size"
+                      >
+                        <Minus size={12} />
+                      </Button>
+                      <input
+                        type="number"
+                        min={10}
+                        max={72}
+                        step={1}
+                        value={recipientNameFontSize}
+                        onChange={(event) =>
+                          updateRecipientNameFontSize(
+                            Number(event.target.value) || 18,
+                          )
+                        }
+                        disabled={controlsDisabled || !showRecipientName}
+                        className="w-10 h-8 appearance-none rounded-md border border-[#16302b18] bg-white px-2 text-center text-sm leading-none text-[#16302b] outline-none transition [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none placeholder:text-[#6a8680] focus:border-[#1b6b63] focus:ring-2 focus:ring-[#1b6b63]/15 disabled:cursor-not-allowed disabled:bg-[#16302b08] disabled:text-[#6a8680]"
+                        aria-label="Recipient name size adjustment"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() =>
+                          updateRecipientNameFontSize(recipientNameFontSize + 1)
+                        }
+                        disabled={controlsDisabled || !showRecipientName}
+                        className="size-6 shrink-0 rounded-full px-0"
+                        aria-label="Increase recipient name size"
+                      >
+                        <Plus size={12} />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1351,6 +1673,7 @@ export default function PdfWorkbench() {
                   min={-120}
                   max={120}
                   step={1}
+                  disabled={controlsDisabled}
                   onValueChange={([value]) =>
                     setOffsetX(snapToDefault(value ?? 0, 0, 4))
                   }
@@ -1368,6 +1691,7 @@ export default function PdfWorkbench() {
                   min={-120}
                   max={120}
                   step={1}
+                  disabled={controlsDisabled}
                   onValueChange={([value]) =>
                     setOffsetY(snapToDefault(value ?? 0, 0, 4))
                   }
@@ -1387,6 +1711,7 @@ export default function PdfWorkbench() {
                   min={-0.5}
                   max={0.5}
                   step={0.01}
+                  disabled={controlsDisabled}
                   onValueChange={([value]) =>
                     setScaleOffset(snapToDefault(value ?? 0, 0, 0.03))
                   }
@@ -1407,6 +1732,7 @@ export default function PdfWorkbench() {
                     min={0}
                     max={270}
                     step={90}
+                    disabled={controlsDisabled}
                     onValueChange={([value]) => setRotationOffset(value ?? 0)}
                   />
                 </div>
@@ -1419,6 +1745,7 @@ export default function PdfWorkbench() {
                   type="button"
                   variant="ghost"
                   className="justify-center px-4"
+                  disabled={controlsDisabled}
                   onClick={() => {
                     setOffsetX(0);
                     setOffsetY(0);

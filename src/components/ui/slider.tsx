@@ -18,13 +18,13 @@ function Slider({
     <SliderPrimitive.Root
       data-slot="slider"
       className={cn(
-        "relative flex w-full touch-none select-none items-center",
+        "relative flex w-full touch-none select-none items-center data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
         className,
       )}
       {...props}
     >
-      <SliderPrimitive.Track className="relative z-0 h-1.5 w-full grow overflow-hidden rounded-full bg-[#dceae7]">
-        <SliderPrimitive.Range className="absolute h-full bg-[#1b6b63]" />
+      <SliderPrimitive.Track className="relative z-0 h-1.5 w-full grow overflow-hidden rounded-full bg-[#dceae7] data-[disabled]:bg-[#16302b12]">
+        <SliderPrimitive.Range className="absolute h-full bg-[#1b6b63] data-[disabled]:bg-[#6a8680]" />
       </SliderPrimitive.Track>
       {typeof notchPercent === "number" ? (
         <div
@@ -33,7 +33,7 @@ function Slider({
           style={{ left: `${notchPercent}%` }}
         />
       ) : null}
-      <SliderPrimitive.Thumb className="relative z-20 block h-4 w-4 rounded-full border border-[#1b6b63] bg-white shadow-sm transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1b6b63]/30" />
+      <SliderPrimitive.Thumb className="relative z-20 block h-4 w-4 rounded-full border border-[#1b6b63] bg-white shadow-sm transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1b6b63]/30 data-[disabled]:pointer-events-none data-[disabled]:border-[#6a8680] data-[disabled]:bg-[#f2f6f5]" />
     </SliderPrimitive.Root>
   );
 }
