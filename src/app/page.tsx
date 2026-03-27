@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import PhoneFrame from "./components/PhoneFrame";
+import { APP_STORE_URL } from "@/lib/app-store";
+import PhoneFrame from "@/components/PhoneFrame";
+import Header from "@/components/Header";
 import {
   ScanText,
   Truck,
@@ -11,9 +13,6 @@ import {
   ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
-
-const APP_STORE_URL =
-  "https://apps.apple.com/us/app/croplet/id6760548549?itscg=30200&itsct=apps_box_link&mttnsubad=6760548549";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://croplet.app"),
@@ -76,42 +75,7 @@ export default function Home() {
           "radial-gradient(circle at top left, rgba(27,107,99,0.15), transparent 40%), linear-gradient(180deg, #eef6f3 0%, #f4f7f4 100%)",
       }}
     >
-      {/* Nav */}
-      <header className="w-full px-6 py-5 flex items-center justify-between max-w-5xl mx-auto">
-        <div className="flex items-center gap-3">
-          <Image
-            src="/icon.png"
-            alt="Croplet icon"
-            width={36}
-            height={36}
-            className="rounded-xl"
-          />
-          <span className="font-semibold text-[#16302b] tracking-tight">
-            Croplet
-          </span>
-        </div>
-        <nav className="flex items-center gap-6 text-sm text-[#56716a]">
-          <Link
-            href="/privacy"
-            className="hover:text-[#1b6b63] transition-colors"
-          >
-            Privacy
-          </Link>
-          <a
-            href={APP_STORE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block transition-opacity hover:opacity-80"
-          >
-            <Image
-              src="/black.svg"
-              alt="Download on the App Store"
-              width={120}
-              height={40}
-            />
-          </a>
-        </nav>
-      </header>
+      <Header currentPath="/" appStoreUrl={APP_STORE_URL} />
 
       <main className="flex-1">
         {/* Hero */}
@@ -367,6 +331,9 @@ export default function Home() {
           <span>© {new Date().getFullYear()} Umberto Ragone</span>
         </div>
         <div className="flex items-center gap-5">
+          <Link href="/web" className="hover:text-[#1b6b63] transition-colors">
+            Web
+          </Link>
           <Link
             href="/privacy"
             className="hover:text-[#1b6b63] transition-colors"

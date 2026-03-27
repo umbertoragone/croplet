@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Image from "next/image";
-import Link from "next/link";
+import Header from "@/components/Header";
+import { APP_STORE_URL } from "@/lib/app-store";
 
 export const metadata: Metadata = {
   title: "Privacy Policy — Croplet",
@@ -18,21 +18,7 @@ export default function PrivacyPage() {
         lineHeight: "1.6",
       }}
     >
-      {/* Nav */}
-      <header className="w-full px-6 py-5 flex items-center justify-between max-w-5xl mx-auto">
-        <Link href="/" className="flex items-center gap-3 group">
-          <Image
-            src="/icon.png"
-            alt="Croplet icon"
-            width={36}
-            height={36}
-            className="rounded-xl"
-          />
-          <span className="font-semibold text-[#16302b] tracking-tight group-hover:text-[#1b6b63] transition-colors">
-            Croplet
-          </span>
-        </Link>
-      </header>
+      <Header currentPath="/privacy" appStoreUrl={APP_STORE_URL} />
 
       <main
         className="mx-auto my-12 p-8"

@@ -3,7 +3,7 @@ import PWARegistration from "./pwa-registration";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://web.croplet.app"),
-  title: "Web App",
+  title: "Croplet Web",
   description:
     "Croplet Web brings shipping-label cropping to desktop browsers and installable PWA homescreens.",
   manifest: "/manifest.webmanifest",

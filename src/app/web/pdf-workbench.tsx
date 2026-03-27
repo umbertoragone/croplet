@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
@@ -659,7 +660,7 @@ export default function PdfWorkbench() {
                       <div className="relative">
                         <LinkIcon
                           size={16}
-                          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#6a8680]"
+                          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#6a8680]"
                         />
                         <input
                           id="pdf-url"
@@ -675,7 +676,7 @@ export default function PdfWorkbench() {
                               void handleImportFromUrl();
                             }
                           }}
-                          className="h-11 w-full rounded-full border border-[#16302b18] bg-white px-11 pr-16 text-sm text-[#16302b] outline-none transition placeholder:text-[#6a8680] focus:border-[#1b6b63] focus:ring-2 focus:ring-[#1b6b63]/15"
+                          className="h-11 w-full rounded-full border border-[#16302b18] bg-white px-8 pr-16 text-sm text-[#16302b] outline-none transition placeholder:text-[#6a8680] focus:border-[#1b6b63] focus:ring-2 focus:ring-[#1b6b63]/15"
                         />
                         <button
                           type="button"
@@ -747,7 +748,7 @@ export default function PdfWorkbench() {
             </h2>
           </div>
 
-          <div className="space-y-6 overflow-hidden rounded-[2rem] border border-[#16302b14] bg-[linear-gradient(180deg,#fdfefd_0%,#f6fbfa_100%)] p-5 md:flex-1 md:overflow-auto">
+          <div className="space-y-6 overflow-hidden rounded-[2rem] border border-[#16302b14] bg-[linear-gradient(180deg,#fdfefd_0%,#f6fbfa_100%)] p-5 md:flex md:flex-1 md:flex-col md:overflow-auto">
             <div className="space-y-2">
               <Label htmlFor="label-type">Label type</Label>
               <Select
@@ -849,20 +850,33 @@ export default function PdfWorkbench() {
               ) : null}
             </div>
 
-            <div className="flex items-center justify-center">
-              <Button
-                type="button"
-                variant="ghost"
-                className="justify-center px-4"
-                onClick={() => {
-                  setOffsetX(0);
-                  setOffsetY(0);
-                  setScaleOffset(0);
-                  setRotationOffset(0);
-                }}
+            <div className="space-y-4">
+              <div className="flex items-center justify-center">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="justify-center px-4"
+                  onClick={() => {
+                    setOffsetX(0);
+                    setOffsetY(0);
+                    setScaleOffset(0);
+                    setRotationOffset(0);
+                  }}
+                >
+                  Reset adjustments
+                </Button>
+              </div>
+            </div>
+
+            <div className="md:flex-1" />
+
+            <div className="flex justify-center border-t border-[#16302b10] pt-4">
+              <Link
+                href="/privacy"
+                className="text-sm font-medium text-[#56716a] transition-colors hover:text-[#1b6b63]"
               >
-                Reset adjustments
-              </Button>
+                Privacy
+              </Link>
             </div>
           </div>
         </div>
