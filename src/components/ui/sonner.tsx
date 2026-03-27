@@ -10,15 +10,14 @@ export function AppToaster() {
       toastOptions={{
         style: {
           borderRadius: "18px",
-          border: "1px solid rgba(22,48,43,0.08)",
-          background: "#fdfefd",
-          color: "#16302b",
-          boxShadow: "0 18px 40px rgba(8,43,43,0.14)",
         },
         classNames: {
-          toast: "border-[#16302b14] bg-[#fdfefd] text-[#16302b]",
+          toast:
+            "border border-[#16302b14] bg-[#fdfefd] text-[#16302b] shadow-[0_18px_40px_rgba(8,43,43,0.14)]",
           error:
-            "border-[#d45555] bg-[#fffdfd] text-[#a12f2f] shadow-[0_18px_40px_rgba(170,60,60,0.12)]",
+            "border-[#d45555] bg-[#fff1f1] text-[#8f2424] shadow-[0_18px_40px_rgba(170,60,60,0.16)]",
+          closeButton:
+            "border-inherit bg-inherit text-inherit hover:bg-white/50 hover:text-inherit",
         },
       }}
     />

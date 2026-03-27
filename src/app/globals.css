@@ -17,6 +17,22 @@ body {
   color: #16302b;
 }
 
+[data-sonner-toast] {
+  transition: transform 400ms, opacity 260ms ease, height 400ms, box-shadow 200ms !important;
+}
+
+[data-sonner-toast][data-visible="false"] {
+  opacity: 0 !important;
+}
+
+[data-sonner-toast][data-mounted="true"] {
+  opacity: 1 !important;
+}
+
+[data-sonner-toast][data-removed="true"] {
+  opacity: 0 !important;
+}
+
 .pdf-preview-document,
 .pdf-preview-document > div,
 .pdf-preview-page {
