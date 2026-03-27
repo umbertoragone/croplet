@@ -38,6 +38,8 @@ import { Switch } from "@/components/ui/switch";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 
+import type { WebLocale } from "./localization";
+
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
   import.meta.url,
@@ -120,14 +122,14 @@ const POSTE_ITALIANE_RECIPIENT_SKIP_TOKENS = [
   "codice",
 ];
 
-const LABEL_OPTIONS: { value: LabelType; label: string }[] = [
-  { value: "posteItaliane", label: "Poste Italiane" },
-  { value: "vintedGo", label: "Poste Italiane (VintedGo)" },
-  { value: "brt", label: "BRT" },
-  { value: "inpostFamily", label: "InPost / Mondial Relay / Hermes" },
-  { value: "ups", label: "UPS" },
-  { value: "dhl", label: "DHL" },
-  { value: "manualEditor", label: "Manual crop" },
+const LABEL_OPTIONS: { value: LabelType }[] = [
+  { value: "posteItaliane" },
+  { value: "vintedGo" },
+  { value: "brt" },
+  { value: "inpostFamily" },
+  { value: "ups" },
+  { value: "dhl" },
+  { value: "manualEditor" },
 ];
 const DEFAULT_LABEL_TYPE = LABEL_OPTIONS[0]?.value ?? "posteItaliane";
 const BRT_RIF_PATTERN = /rif\s*\.\s*:\s*\d{8,12}/i;
@@ -530,7 +532,61 @@ function SliderWithDefaultNotch({
   );
 }
 
-export default function PdfWorkbench() {
+type PdfWorkbenchProps = {
+  locale: WebLocale;
+  messages: {
+    labelOptions: Record<LabelType, string>;
+    errors: {
+      choosePdf: string;
+      enterPdfUrl: string;
+      enterValidUrl: string;
+      fetchPdfUrl: string;
+      urlNotPdf: string;
+      importFailed: string;
+      noReadablePage: string;
+      noProcessedPage: string;
+      processFailed: string;
+    };
+    output: {
+      eyebrow: string;
+      title: string;
+      actionsLabel: string;
+      removePdf: string;
+      replacePdf: string;
+      exportPdf: string;
+      print: string;
+      dragTitle: string;
+      dragDescription: string;
+      choosePdf: string;
+      importDivider: string;
+      pdfUrl: string;
+      pdfUrlPlaceholder: string;
+      importingPdf: string;
+      importPdfFromUrl: string;
+    };
+    controls: {
+      eyebrow: string;
+      title: string;
+      labelType: string;
+      chooseLabelType: string;
+      useHalfPage: string;
+      useHalfPageHint: string;
+      showRecipientName: string;
+      recipientNameSize: string;
+      decreaseRecipientNameSize: string;
+      increaseRecipientNameSize: string;
+      recipientNameSizeAdjustment: string;
+      horizontal: string;
+      vertical: string;
+      scale: string;
+      rotation: string;
+      resetAdjustments: string;
+      privacy: string;
+    };
+  };
+};
+
+export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const previewFrameRef = useRef<HTMLDivElement | null>(null);
   const ocrWorkerRef = useRef<TesseractWorker | null>(null);
@@ -561,6 +617,14 @@ export default function PdfWorkbench() {
   const basePreset = useMemo(
     () => initialPreset(labelType, useHalfPageBRT),
     [labelType, useHalfPageBRT],
+  );
+  const localizedLabelOptions = useMemo(
+    () =>
+      LABEL_OPTIONS.map((option) => ({
+        value: option.value,
+        label: messages.labelOptions[option.value],
+      })),
+    [messages.labelOptions],
   );
   const runCropPdf = useEffectEvent(
     (
@@ -707,8 +771,7 @@ export default function PdfWorkbench() {
       nextFile.name.toLowerCase().endsWith(".pdf");
 
     if (!looksLikePdf) {
-      const message = "Please choose a PDF file.";
-      toast.error(message);
+      toast.error(messages.errors.choosePdf);
       return;
     }
 
@@ -744,7 +807,7 @@ export default function PdfWorkbench() {
     const trimmedUrl = importUrl.trim();
 
     if (!trimmedUrl) {
-      toast.error("Enter a PDF URL.");
+      toast.error(messages.errors.enterPdfUrl);
       return;
     }
 
@@ -753,7 +816,7 @@ export default function PdfWorkbench() {
     try {
       parsedUrl = new URL(trimmedUrl);
     } catch {
-      toast.error("Enter a valid URL.");
+      toast.error(messages.errors.enterValidUrl);
       return;
     }
 
@@ -763,7 +826,7 @@ export default function PdfWorkbench() {
       const response = await fetch(parsedUrl.toString());
 
       if (!response.ok) {
-        throw new Error("The PDF URL could not be fetched.");
+        throw new Error(messages.errors.fetchPdfUrl);
       }
 
       const blob = await response.blob();
@@ -773,7 +836,7 @@ export default function PdfWorkbench() {
         contentType.includes("pdf") || urlPath.endsWith(".pdf");
 
       if (!looksLikePdf) {
-        throw new Error("The provided URL does not point to a PDF.");
+        throw new Error(messages.errors.urlNotPdf);
       }
 
       const fileNameFromUrl =
@@ -791,7 +854,7 @@ export default function PdfWorkbench() {
       const message =
         importError instanceof Error
           ? importError.message
-          : "Failed to import the PDF from this URL.";
+          : messages.errors.importFailed;
       toast.error(message);
     } finally {
       setIsImportingUrl(false);
@@ -1099,7 +1162,7 @@ export default function PdfWorkbench() {
       const firstPage = workingPdf.getPages()[0];
 
       if (!firstPage) {
-        throw new Error("The PDF does not contain a readable first page.");
+        throw new Error(messages.errors.noReadablePage);
       }
 
       firstPage.setCropBox(
@@ -1135,7 +1198,7 @@ export default function PdfWorkbench() {
       const processedPage = processedPdf.getPages()[0];
 
       if (!processedPage) {
-        throw new Error("The PDF does not contain a processed first page.");
+        throw new Error(messages.errors.noProcessedPage);
       }
 
       const cropBox = processedPage.getCropBox();
@@ -1259,7 +1322,7 @@ export default function PdfWorkbench() {
       const message =
         cropError instanceof Error
           ? cropError.message
-          : "Failed to process this PDF.";
+          : messages.errors.processFailed;
       toast.error(message);
       setPdfUrl((currentUrl) => {
         if (currentUrl) {
@@ -1281,18 +1344,18 @@ export default function PdfWorkbench() {
           <div className="md:shrink-0">
             <div className="lg:flex lg:items-end lg:justify-between lg:gap-6">
               <div>
-                <div className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-[#1b6b63]">
-                  Output
+                  <div className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-[#1b6b63]">
+                  {messages.output.eyebrow}
                 </div>
                 <h2 className="text-2xl font-semibold tracking-tight text-[#082b2b]">
-                  PDF preview
+                  {messages.output.title}
                 </h2>
               </div>
 
               {pdfUrl ? (
                 <div className="hidden lg:flex lg:justify-end">
                   <ButtonGroup
-                    aria-label="PDF actions"
+                    aria-label={messages.output.actionsLabel}
                     className="rounded-full border border-[#16302b20] bg-white shadow-[0_10px_30px_rgba(8,43,43,0.04)]"
                   >
                     <Button
@@ -1300,7 +1363,7 @@ export default function PdfWorkbench() {
                       variant="outline"
                       onClick={clearSelectedPdf}
                       className="size-10 shrink-0 border-transparent bg-transparent px-0 text-[#bf3f3f] hover:border-transparent hover:bg-[#fff5f5] hover:text-[#9f2e2e]"
-                      aria-label="Remove PDF"
+                      aria-label={messages.output.removePdf}
                     >
                       <Trash2 size={16} />
                     </Button>
@@ -1312,7 +1375,7 @@ export default function PdfWorkbench() {
                       className="border-transparent bg-transparent hover:border-transparent hover:bg-[#f6fbfa]"
                     >
                       <FileUp size={16} />
-                      Replace PDF
+                      {messages.output.replacePdf}
                     </Button>
                     <ButtonGroupSeparator />
                     <Button
@@ -1329,7 +1392,7 @@ export default function PdfWorkbench() {
                         }
                       >
                         <Download size={16} />
-                        Export PDF
+                        {messages.output.exportPdf}
                       </a>
                     </Button>
                     <ButtonGroupSeparator />
@@ -1340,7 +1403,7 @@ export default function PdfWorkbench() {
                       className="border-transparent bg-transparent hover:border-transparent hover:bg-[#f6fbfa]"
                     >
                       <Printer size={16} />
-                      Print
+                      {messages.output.print}
                     </Button>
                   </ButtonGroup>
                 </div>
@@ -1431,10 +1494,10 @@ export default function PdfWorkbench() {
                     <UploadCloud size={26} />
                   </div>
                   <div className="mt-5 text-2xl font-semibold tracking-tight text-[#082b2b]">
-                    Drag and drop a PDF
+                    {messages.output.dragTitle}
                   </div>
                   <div className="mt-2 text-sm leading-7 text-[#56716a]">
-                    Upload an A4 shipping-label PDF
+                    {messages.output.dragDescription}
                   </div>
                   <div className="mt-6 flex items-center justify-center gap-3">
                     <Button
@@ -1445,13 +1508,13 @@ export default function PdfWorkbench() {
                       }}
                     >
                       <FileUp size={16} />
-                      Choose PDF
+                      {messages.output.choosePdf}
                     </Button>
                   </div>
                   <div className="mt-8">
                     <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.22em] text-[#6a8680]">
                       <span className="h-px flex-1 bg-[#16302b12]" />
-                      Or import from URL
+                      {messages.output.importDivider}
                       <span className="h-px flex-1 bg-[#16302b12]" />
                     </div>
                     <div
@@ -1459,7 +1522,7 @@ export default function PdfWorkbench() {
                       onClick={(event) => event.stopPropagation()}
                     >
                       <label className="sr-only" htmlFor="pdf-url">
-                        PDF URL
+                        {messages.output.pdfUrl}
                       </label>
                       <div className="relative">
                         <LinkIcon
@@ -1470,7 +1533,7 @@ export default function PdfWorkbench() {
                           id="pdf-url"
                           type="url"
                           inputMode="url"
-                          placeholder="https://example.com/label.pdf"
+                          placeholder={messages.output.pdfUrlPlaceholder}
                           value={importUrl}
                           onChange={(event) => setImportUrl(event.target.value)}
                           onKeyDown={(event) => {
@@ -1486,8 +1549,8 @@ export default function PdfWorkbench() {
                           type="button"
                           aria-label={
                             isImportingUrl
-                              ? "Importing PDF"
-                              : "Import PDF from URL"
+                              ? messages.output.importingPdf
+                              : messages.output.importPdfFromUrl
                           }
                           onClick={(event) => {
                             event.stopPropagation();
@@ -1513,13 +1576,13 @@ export default function PdfWorkbench() {
                 variant="outline"
                 onClick={clearSelectedPdf}
                 className="size-10 shrink-0 rounded-full border-[#c94b4b33] px-0 text-[#bf3f3f] hover:border-[#bf3f3f] hover:bg-[#fff5f5] hover:text-[#9f2e2e]"
-                aria-label="Remove PDF"
+                aria-label={messages.output.removePdf}
               >
                 <Trash2 size={16} />
               </Button>
               <Button type="button" variant="outline" onClick={openFileDialog}>
                 <FileUp size={16} />
-                Replace PDF
+                {messages.output.replacePdf}
               </Button>
               <Button asChild variant="outline">
                 <a
@@ -1531,12 +1594,12 @@ export default function PdfWorkbench() {
                   }
                 >
                   <Download size={16} />
-                  Export PDF
+                  {messages.output.exportPdf}
                 </a>
               </Button>
               <Button type="button" variant="outline" onClick={handlePrint}>
                 <Printer size={16} />
-                Print
+                {messages.output.print}
               </Button>
             </div>
           ) : null}
@@ -1545,26 +1608,26 @@ export default function PdfWorkbench() {
         <div className="space-y-6 md:flex md:h-full md:min-h-0 md:flex-col md:overflow-hidden md:order-1">
           <div>
             <div className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-[#1b6b63]">
-              Controls
+              {messages.controls.eyebrow}
             </div>
             <h2 className="text-2xl font-semibold tracking-tight text-[#082b2b]">
-              Crop parameters
+              {messages.controls.title}
             </h2>
           </div>
 
           <div className="space-y-6 overflow-hidden rounded-[2rem] border border-[#16302b14] bg-[linear-gradient(180deg,#fdfefd_0%,#f6fbfa_100%)] p-5 md:flex md:flex-1 md:flex-col md:overflow-auto">
             <div className="space-y-2">
-              <Label htmlFor="label-type">Label type</Label>
+              <Label htmlFor="label-type">{messages.controls.labelType}</Label>
               <Select
                 value={labelType}
                 onValueChange={(value) => setLabelType(value as LabelType)}
                 disabled={controlsDisabled}
               >
                 <SelectTrigger id="label-type">
-                  <SelectValue placeholder="Choose label type" />
+                  <SelectValue placeholder={messages.controls.chooseLabelType} />
                 </SelectTrigger>
                 <SelectContent>
-                  {LABEL_OPTIONS.map((option) => (
+                  {localizedLabelOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
@@ -1577,10 +1640,10 @@ export default function PdfWorkbench() {
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-[1.2rem] border border-[#16302b10] bg-[#fcfdfc] px-4 py-3">
                 <div className="min-w-0 space-y-1">
                   <div className="text-sm font-medium text-[#16302b]">
-                    Use half page
+                    {messages.controls.useHalfPage}
                   </div>
                   <div className="text-sm text-[#56716a]">
-                    Switch between the two BRT crop presets.
+                    {messages.controls.useHalfPageHint}
                   </div>
                 </div>
                 <Switch
@@ -1598,7 +1661,7 @@ export default function PdfWorkbench() {
                   <div className="grid h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
                     <div className="min-w-0">
                       <div className="text-sm font-medium leading-none text-[#16302b]">
-                        Show recipient name
+                        {messages.controls.showRecipientName}
                       </div>
                     </div>
                     <Switch
@@ -1612,7 +1675,7 @@ export default function PdfWorkbench() {
                   <div className="grid h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
                     <div className="min-w-0">
                       <div className="text-sm font-medium leading-none text-[#16302b]">
-                        Recipient name size
+                        {messages.controls.recipientNameSize}
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
@@ -1624,7 +1687,7 @@ export default function PdfWorkbench() {
                         }
                         disabled={controlsDisabled || !showRecipientName}
                         className="size-6 shrink-0 rounded-full px-0"
-                        aria-label="Decrease recipient name size"
+                        aria-label={messages.controls.decreaseRecipientNameSize}
                       >
                         <Minus size={12} />
                       </Button>
@@ -1641,7 +1704,7 @@ export default function PdfWorkbench() {
                         }
                         disabled={controlsDisabled || !showRecipientName}
                         className="w-10 h-8 appearance-none rounded-md border border-[#16302b18] bg-white px-2 text-center text-sm leading-none text-[#16302b] outline-none transition [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none placeholder:text-[#6a8680] focus:border-[#1b6b63] focus:ring-2 focus:ring-[#1b6b63]/15 disabled:cursor-not-allowed disabled:bg-[#16302b08] disabled:text-[#6a8680]"
-                        aria-label="Recipient name size adjustment"
+                        aria-label={messages.controls.recipientNameSizeAdjustment}
                       />
                       <Button
                         type="button"
@@ -1651,7 +1714,7 @@ export default function PdfWorkbench() {
                         }
                         disabled={controlsDisabled || !showRecipientName}
                         className="size-6 shrink-0 rounded-full px-0"
-                        aria-label="Increase recipient name size"
+                        aria-label={messages.controls.increaseRecipientNameSize}
                       >
                         <Plus size={12} />
                       </Button>
@@ -1664,7 +1727,9 @@ export default function PdfWorkbench() {
             <div className="space-y-5">
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-[#56716a]">Horizontal</span>
+                  <span className="text-[#56716a]">
+                    {messages.controls.horizontal}
+                  </span>
                   <span className="font-medium text-[#16302b]">{offsetX}</span>
                 </div>
                 <SliderWithDefaultNotch
@@ -1682,7 +1747,9 @@ export default function PdfWorkbench() {
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-[#56716a]">Vertical</span>
+                  <span className="text-[#56716a]">
+                    {messages.controls.vertical}
+                  </span>
                   <span className="font-medium text-[#16302b]">{offsetY}</span>
                 </div>
                 <SliderWithDefaultNotch
@@ -1700,7 +1767,9 @@ export default function PdfWorkbench() {
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-[#56716a]">Scale</span>
+                  <span className="text-[#56716a]">
+                    {messages.controls.scale}
+                  </span>
                   <span className="font-medium text-[#16302b]">
                     {Math.round(preset.scale * 100)}%
                   </span>
@@ -1721,7 +1790,9 @@ export default function PdfWorkbench() {
               {labelType === "manualEditor" ? (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-[#56716a]">Rotation</span>
+                    <span className="text-[#56716a]">
+                      {messages.controls.rotation}
+                    </span>
                     <span className="font-medium text-[#16302b]">
                       {preset.rotate}°
                     </span>
@@ -1754,7 +1825,7 @@ export default function PdfWorkbench() {
                     setRecipientNameFontSize(18);
                   }}
                 >
-                  Reset adjustments
+                  {messages.controls.resetAdjustments}
                 </Button>
               </div>
             </div>
@@ -1766,7 +1837,7 @@ export default function PdfWorkbench() {
                 href="/privacy"
                 className="text-sm font-medium text-[#56716a] transition-colors hover:text-[#1b6b63]"
               >
-                Privacy
+                {messages.controls.privacy}
               </Link>
             </div>
           </div>
