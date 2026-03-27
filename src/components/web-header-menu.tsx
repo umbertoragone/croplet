@@ -1,31 +1,39 @@
 "use client";
 
 import { Menu, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useWebHaptics } from "web-haptics/react";
 
 type WebHeaderMenuProps = {
   children: React.ReactNode;
+  headerContent?: React.ReactNode;
 };
 
-export default function WebHeaderMenu({ children }: WebHeaderMenuProps) {
+export default function WebHeaderMenu({
+  children,
+  headerContent,
+}: WebHeaderMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const closeTimeoutRef = useRef<number | null>(null);
+  const { trigger } = useWebHaptics();
 
-  function openMenu() {
+  const openMenu = useCallback(() => {
     if (closeTimeoutRef.current !== null) {
       window.clearTimeout(closeTimeoutRef.current);
       closeTimeoutRef.current = null;
     }
 
     setIsMounted(true);
+    void trigger("selection");
     requestAnimationFrame(() => {
       setIsOpen(true);
     });
-  }
+  }, [trigger]);
 
-  function closeMenu() {
+  const closeMenu = useCallback(() => {
+    void trigger("selection");
     setIsOpen(false);
 
     if (closeTimeoutRef.current !== null) {
@@ -36,7 +44,7 @@ export default function WebHeaderMenu({ children }: WebHeaderMenuProps) {
       setIsMounted(false);
       closeTimeoutRef.current = null;
     }, 180);
-  }
+  }, [trigger]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -54,7 +62,7 @@ export default function WebHeaderMenu({ children }: WebHeaderMenuProps) {
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen]);
+  }, [closeMenu, isOpen]);
 
   useEffect(() => {
     return () => {
@@ -100,7 +108,8 @@ export default function WebHeaderMenu({ children }: WebHeaderMenuProps) {
             }`}
           >
             <div className="mx-auto w-full max-w-6xl">
-              <div className="flex items-center justify-end">
+              <div className="flex items-center justify-between gap-4">
+                {headerContent ? <div className="min-w-0">{headerContent}</div> : <div />}
                 <button
                   type="button"
                   aria-label="Close menu"

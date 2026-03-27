@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ArrowRight,
   Download,
@@ -18,6 +25,7 @@ import { Document, Page, pdfjs } from "react-pdf";
 import { toast } from "sonner";
 import type { PSM, Worker as TesseractWorker } from "tesseract.js";
 import { createWorker } from "tesseract.js";
+import { useWebHaptics } from "web-haptics/react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -78,6 +86,7 @@ type DetectedLabel = {
 
 type SliderWithDefaultNotchProps = React.ComponentProps<typeof Slider> & {
   notchValue: number;
+  onPassNotch?: () => void;
 };
 
 const OUTPUT_PAGE_WIDTH = 288;
@@ -509,14 +518,56 @@ function SliderWithDefaultNotch({
   min,
   max,
   className,
+  onPassNotch,
+  onValueChange,
   ...props
 }: SliderWithDefaultNotchProps) {
+  const currentValue = Array.isArray(props.value) ? props.value[0] : undefined;
+  const previousValueRef = useRef(currentValue);
+
+  useEffect(() => {
+    previousValueRef.current = currentValue;
+  }, [currentValue]);
+
+  const handleValueChange = useCallback(
+    (nextValue: number[]) => {
+      const previousValue = previousValueRef.current;
+      const nextSingleValue = nextValue[0];
+
+      if (
+        typeof previousValue === "number" &&
+        typeof nextSingleValue === "number" &&
+        previousValue !== nextSingleValue
+      ) {
+        const previousDelta = previousValue - notchValue;
+        const nextDelta = nextSingleValue - notchValue;
+        const reachedOrCrossedNotch =
+          Math.abs(previousDelta) > 0.0001 && previousDelta * nextDelta <= 0;
+
+        if (reachedOrCrossedNotch) {
+          onPassNotch?.();
+        }
+      }
+
+      previousValueRef.current = nextSingleValue;
+      onValueChange?.(nextValue);
+    },
+    [notchValue, onPassNotch, onValueChange],
+  );
+
   if (typeof min !== "number" || typeof max !== "number" || min === max) {
-    return <Slider className={className} min={min} max={max} {...props} />;
+    return (
+      <Slider
+        className={className}
+        min={min}
+        max={max}
+        onValueChange={handleValueChange}
+        {...props}
+      />
+    );
   }
 
   const notchPercent = ((notchValue - min) / (max - min)) * 100;
-  const currentValue = Array.isArray(props.value) ? props.value[0] : undefined;
   const shouldShowNotch =
     typeof currentValue !== "number" ||
     Math.abs(currentValue - notchValue) > 0.0001;
@@ -527,6 +578,7 @@ function SliderWithDefaultNotch({
       min={min}
       max={max}
       notchPercent={shouldShowNotch ? notchPercent : undefined}
+      onValueChange={handleValueChange}
       {...props}
     />
   );
@@ -613,6 +665,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
   const [isImportingUrl, setIsImportingUrl] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const controlsDisabled = file === null;
+  const { trigger } = useWebHaptics();
 
   const basePreset = useMemo(
     () => initialPreset(labelType, useHalfPageBRT),
@@ -872,6 +925,10 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
 
   function updateRecipientNameFontSize(nextValue: number) {
     setRecipientNameFontSize(Math.max(10, Math.min(72, nextValue)));
+  }
+
+  function triggerSelectionHaptic() {
+    void trigger("selection");
   }
 
   function fileCacheKey(nextFile: File) {
@@ -1739,6 +1796,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                   max={120}
                   step={1}
                   disabled={controlsDisabled}
+                  onPassNotch={triggerSelectionHaptic}
                   onValueChange={([value]) =>
                     setOffsetX(snapToDefault(value ?? 0, 0, 4))
                   }
@@ -1759,6 +1817,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                   max={120}
                   step={1}
                   disabled={controlsDisabled}
+                  onPassNotch={triggerSelectionHaptic}
                   onValueChange={([value]) =>
                     setOffsetY(snapToDefault(value ?? 0, 0, 4))
                   }
@@ -1781,6 +1840,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                   max={0.5}
                   step={0.01}
                   disabled={controlsDisabled}
+                  onPassNotch={triggerSelectionHaptic}
                   onValueChange={([value]) =>
                     setScaleOffset(snapToDefault(value ?? 0, 0, 0.03))
                   }
@@ -1804,6 +1864,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                     max={270}
                     step={90}
                     disabled={controlsDisabled}
+                    onPassNotch={triggerSelectionHaptic}
                     onValueChange={([value]) => setRotationOffset(value ?? 0)}
                   />
                 </div>

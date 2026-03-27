@@ -3,10 +3,30 @@
 import * as React from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { Check, ChevronDown, ChevronUp } from "lucide-react";
+import { useWebHaptics } from "web-haptics/react";
 
 import { cn } from "@/lib/utils";
 
-const Select = SelectPrimitive.Root;
+function Select({
+  onOpenChange,
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.Root>) {
+  const { trigger } = useWebHaptics();
+
+  const handleOpenChange = React.useCallback(
+    (open: boolean) => {
+      if (open) {
+        void trigger("selection");
+      }
+
+      onOpenChange?.(open);
+    },
+    [onOpenChange, trigger],
+  );
+
+  return <SelectPrimitive.Root onOpenChange={handleOpenChange} {...props} />;
+}
+
 const SelectValue = SelectPrimitive.Value;
 
 function SelectTrigger({
