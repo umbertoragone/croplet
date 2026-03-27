@@ -38,6 +38,68 @@ function WebProductBadge({
   );
 }
 
+function BrandMark() {
+  return (
+    <Link href="/" className="group flex items-center gap-3">
+      <Image
+        src="/icon.png"
+        alt="Croplet icon"
+        width={36}
+        height={36}
+        className="rounded-xl"
+      />
+      <span className="font-semibold tracking-tight text-[#16302b] transition-colors group-hover:text-[#1b6b63]">
+        Croplet
+      </span>
+    </Link>
+  );
+}
+
+function MarketingNav({
+  currentPath,
+  appStoreUrl,
+  mobile = false,
+}: {
+  currentPath?: "/" | "/privacy" | "/web";
+  appStoreUrl?: string;
+  mobile?: boolean;
+}) {
+  return (
+    <nav
+      className={
+        mobile
+          ? "flex flex-col items-start gap-5 pt-2 text-base"
+          : "flex items-center gap-6 text-sm"
+      }
+    >
+      <Link href="/web" className={navLinkClass(currentPath === "/web")}>
+        Web
+      </Link>
+      <Link
+        href="/privacy"
+        className={navLinkClass(currentPath === "/privacy")}
+      >
+        Privacy
+      </Link>
+      {appStoreUrl ? (
+        <a
+          href={appStoreUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block transition-opacity hover:opacity-80"
+        >
+          <Image
+            src="/black.svg"
+            alt="Download on the App Store"
+            width={120}
+            height={40}
+          />
+        </a>
+      ) : null}
+    </nav>
+  );
+}
+
 export default function Header({
   currentPath,
   appStoreUrl,
@@ -57,7 +119,10 @@ export default function Header({
               <div className="block md:hidden">
                 <WebHeaderMenu
                   headerContent={
-                    <WebProductBadge webProduct={webProduct} webBadge={webBadge} />
+                    <WebProductBadge
+                      webProduct={webProduct}
+                      webBadge={webBadge}
+                    />
                   }
                 >
                   {webControls}
@@ -80,31 +145,20 @@ export default function Header({
   }
 
   return (
-    <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-5">
-      <Link href="/" className="flex items-center gap-3 group">
-        <Image src="/icon.png" alt="Croplet icon" width={36} height={36} className="rounded-xl" />
-        <span className="font-semibold tracking-tight text-[#16302b] transition-colors group-hover:text-[#1b6b63]">
-          Croplet
-        </span>
-      </Link>
-      <nav className="flex items-center gap-6 text-sm">
-        <Link href="/web" className={navLinkClass(currentPath === "/web")}>
-          Web
-        </Link>
-        <Link href="/privacy" className={navLinkClass(currentPath === "/privacy")}>
-          Privacy
-        </Link>
-        {appStoreUrl ? (
-          <a
-            href={appStoreUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block transition-opacity hover:opacity-80"
-          >
-            <Image src="/black.svg" alt="Download on the App Store" width={120} height={40} />
-          </a>
-        ) : null}
-      </nav>
+    <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-3 py-4 sm:px-6 sm:py-5">
+      <BrandMark />
+      <div className="md:hidden">
+        <WebHeaderMenu headerContent={<BrandMark />}>
+          <MarketingNav
+            currentPath={currentPath}
+            appStoreUrl={appStoreUrl}
+            mobile
+          />
+        </WebHeaderMenu>
+      </div>
+      <div className="hidden md:block">
+        <MarketingNav currentPath={currentPath} appStoreUrl={appStoreUrl} />
+      </div>
     </header>
   );
 }
