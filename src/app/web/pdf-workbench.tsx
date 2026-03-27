@@ -1602,7 +1602,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                           }}
                           className="h-11 w-full rounded-full border border-[#16302b18] bg-white px-8 pr-16 text-sm text-[#16302b] outline-none transition placeholder:text-[#6a8680] focus:border-[#1b6b63] focus:ring-2 focus:ring-[#1b6b63]/15"
                         />
-                        <button
+                        <Button
                           type="button"
                           aria-label={
                             isImportingUrl
@@ -1614,10 +1614,10 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                             void handleImportFromUrl();
                           }}
                           disabled={isImportingUrl || !isImportUrlValid}
-                          className="absolute right-1.5 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-[#16302b] text-white transition hover:bg-[#0f2523] disabled:cursor-not-allowed disabled:bg-[#16302b]/45"
+                          className="absolute right-1.5 top-1/2 h-9 w-9 -translate-y-1/2 px-0 disabled:bg-[#16302b]/45"
                         >
                           <ArrowRight size={15} />
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   </div>
