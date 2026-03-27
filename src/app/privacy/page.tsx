@@ -3,7 +3,7 @@ import Header from "@/components/Header";
 import { APP_STORE_URL } from "@/lib/app-store";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — Croplet",
+  title: "Privacy Policy",
   description:
     "Croplet is designed to process shipping labels on your device. Learn what the app handles, what stays local, and when data may be shared.",
 };

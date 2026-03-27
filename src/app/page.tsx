@@ -94,7 +94,7 @@ export default function Home() {
               className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-5"
               style={{ color: "#082b2b" }}
             >
-              A4 to 4×6″
+              A4 to 4×6&quot;
               <br />
               label cropper
             </h1>
@@ -103,7 +103,7 @@ export default function Home() {
               style={{ color: "#56716a" }}
             >
               Import any A4 shipping label PDF — including Vinted labels — and
-              crop it to 4×6″ in seconds, ready for your thermal printer.
+              crop it to 4×6&quot; in seconds, ready for your thermal printer.
             </p>
             <a
               href={APP_STORE_URL}
