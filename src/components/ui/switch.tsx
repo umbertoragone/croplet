@@ -7,20 +7,24 @@ import { cn } from "@/lib/utils";
 
 function Switch({
   className,
+  size = "default",
   ...props
-}: React.ComponentProps<typeof SwitchPrimitive.Root>) {
+}: React.ComponentProps<typeof SwitchPrimitive.Root> & {
+  size?: "sm" | "default";
+}) {
   return (
     <SwitchPrimitive.Root
       data-slot="switch"
+      data-size={size}
       className={cn(
-        "peer inline-flex h-8 w-14 cursor-pointer items-center rounded-full border border-[#16302b14] bg-[#dceae7] p-[3px] shadow-[inset_0_1px_2px_rgba(8,43,43,0.08)] transition-[background-color,border-color,box-shadow] outline-none focus-visible:ring-2 focus-visible:ring-[#1b6b63]/25 data-[state=checked]:border-[#1b6b63] data-[state=checked]:bg-[#1b6b63] data-[state=unchecked]:bg-[#dceae7]",
+        "peer group/switch relative inline-flex shrink-0 items-center rounded-full border border-transparent transition-all outline-none after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-[#1b6b63] focus-visible:ring-3 focus-visible:ring-[#1b6b63]/20 data-[size=default]:h-[18.4px] data-[size=default]:w-[32px] data-[size=sm]:h-[14px] data-[size=sm]:w-[24px] data-[state=checked]:bg-[#1b6b63] data-[state=unchecked]:bg-[#dceae7] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
         className,
       )}
       {...props}
     >
       <SwitchPrimitive.Thumb
         data-slot="switch-thumb"
-        className="pointer-events-none block h-6 w-6 rounded-full bg-white shadow-[0_4px_12px_rgba(8,43,43,0.18)] ring-0 transition-transform duration-200 data-[state=checked]:translate-x-6 data-[state=unchecked]:translate-x-0"
+        className="pointer-events-none block rounded-full bg-white shadow-[0_2px_8px_rgba(8,43,43,0.16)] ring-0 transition-transform group-data-[size=default]/switch:size-4 group-data-[size=sm]/switch:size-3 group-data-[size=default]/switch:data-[state=checked]:translate-x-[calc(100%-2px)] group-data-[size=sm]/switch:data-[state=checked]:translate-x-[calc(100%-2px)] group-data-[size=default]/switch:data-[state=unchecked]:translate-x-0 group-data-[size=sm]/switch:data-[state=unchecked]:translate-x-0"
       />
     </SwitchPrimitive.Root>
   );

@@ -1,19 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   Download,
   FileUp,
   Link as LinkIcon,
+  Minus,
+  Plus,
   Printer,
   Trash2,
   UploadCloud,
 } from "lucide-react";
-import { degrees, PDFDocument } from "pdf-lib";
+import { degrees, PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { Document, Page, pdfjs } from "react-pdf";
 import { toast } from "sonner";
+import type { PSM, Worker as TesseractWorker } from "tesseract.js";
+import { createWorker } from "tesseract.js";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -57,8 +61,53 @@ type CropPreset = {
   scale: number;
 };
 
+type RecipientNameLayout = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  initialFontSize: number;
+};
+
+type SliderWithDefaultNotchProps = React.ComponentProps<typeof Slider> & {
+  notchValue: number;
+};
+
 const OUTPUT_PAGE_WIDTH = 288;
 const OUTPUT_PAGE_HEIGHT = 432;
+const POSTE_ITALIANE_RECIPIENT_REGION = {
+  x: 0.27,
+  y: 0.22,
+  width: 0.45,
+  height: 0.17,
+} as const;
+const POSTE_ITALIANE_BLOCKED_WORDS = new Set([
+  "destinatario",
+  "consegna",
+  "punto",
+  "poste",
+  "tracking",
+  "barcode",
+  "mittente",
+  "priority",
+  "ship",
+  "recipient",
+  "via",
+  "presso",
+  "locker",
+  "casella",
+  "numero",
+  "peso",
+]);
+const POSTE_ITALIANE_RECIPIENT_SKIP_TOKENS = [
+  "destinatario",
+  "consegna",
+  "punto poste",
+  "via ",
+  "cap ",
+  "tracking",
+  "codice",
+];
 
 const LABEL_OPTIONS: { value: LabelType; label: string }[] = [
   { value: "posteItaliane", label: "Poste Italiane" },
@@ -118,13 +167,212 @@ function initialPreset(
   return { ...BASE_PRESETS[labelType] };
 }
 
+function normalizePosteItalianeText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
+}
+
+function sanitizedNameCandidate(text: string) {
+  return text
+    .replace(/[^\p{L} .'-]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function looksLikePersonalName(candidate: string) {
+  const words = candidate
+    .split(" ")
+    .map((word) => word.trim())
+    .filter(Boolean);
+
+  if (words.length < 2) {
+    return false;
+  }
+
+  const letterOnlyWords = words.filter((word) =>
+    [...word].every((character) => /[\p{L}'-]/u.test(character)),
+  );
+
+  return letterOnlyWords.length >= 2;
+}
+
+function isPreferredPosteItalianeRecipient(candidate: string) {
+  if (!looksLikePersonalName(candidate)) {
+    return false;
+  }
+
+  const normalizedWords = new Set(
+    normalizePosteItalianeText(candidate)
+      .split(/[^a-z'-]+/i)
+      .map((token) => token.trim())
+      .filter(Boolean),
+  );
+
+  for (const blockedWord of POSTE_ITALIANE_BLOCKED_WORDS) {
+    if (normalizedWords.has(blockedWord)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function extractPosteItalianeRecipientFromTextLines(lines: string[]) {
+  if (!lines.length) {
+    return null;
+  }
+
+  const destinationIndex = lines.findIndex((line) =>
+    normalizePosteItalianeText(line).includes("destinatario"),
+  );
+
+  if (destinationIndex >= 0) {
+    const upperBound = Math.min(lines.length, destinationIndex + 4);
+
+    for (const line of lines.slice(destinationIndex + 1, upperBound)) {
+      const candidate = sanitizedNameCandidate(line);
+
+      if (isPreferredPosteItalianeRecipient(candidate)) {
+        return candidate;
+      }
+
+      const normalizedLine = normalizePosteItalianeText(line);
+      if (
+        normalizedLine.includes("consegna") ||
+        normalizedLine.includes("punto poste") ||
+        normalizedLine.includes("via ")
+      ) {
+        break;
+      }
+    }
+  }
+
+  for (const line of lines) {
+    const match = line.match(/presso:\s*(.+)$/i);
+
+    if (!match) {
+      continue;
+    }
+
+    const candidate = sanitizedNameCandidate(match[1] ?? "");
+    if (isPreferredPosteItalianeRecipient(candidate)) {
+      return candidate;
+    }
+  }
+
+  const pressoIndex = lines.findIndex((line) => /presso:/i.test(line));
+  if (pressoIndex >= 0 && lines[pressoIndex + 1]) {
+    const candidate = sanitizedNameCandidate(lines[pressoIndex + 1]);
+    if (isPreferredPosteItalianeRecipient(candidate)) {
+      return candidate;
+    }
+  }
+
+  for (const line of lines) {
+    const candidate = sanitizedNameCandidate(line);
+    const normalizedCandidate = normalizePosteItalianeText(candidate);
+
+    if (
+      !candidate ||
+      POSTE_ITALIANE_RECIPIENT_SKIP_TOKENS.some((token) =>
+        normalizedCandidate.includes(token),
+      )
+    ) {
+      continue;
+    }
+
+    if (isPreferredPosteItalianeRecipient(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function recipientNameLayout(): RecipientNameLayout {
+  const margin = OUTPUT_PAGE_WIDTH * 0.05;
+
+  return {
+    x: margin,
+    y: OUTPUT_PAGE_HEIGHT - 9 - Math.min(OUTPUT_PAGE_HEIGHT * 0.085, 80),
+    width: OUTPUT_PAGE_WIDTH - margin * 2,
+    height: Math.min(OUTPUT_PAGE_HEIGHT * 0.085, 80),
+    initialFontSize: 20,
+  };
+}
+
+function fittedRecipientFontSize(
+  recipientName: string,
+  maxWidth: number,
+  initialSize: number,
+  minimumSize: number,
+  font: Awaited<ReturnType<PDFDocument["embedFont"]>>,
+) {
+  let size = initialSize;
+
+  while (size > minimumSize) {
+    if (font.widthOfTextAtSize(recipientName, size) <= maxWidth) {
+      return size;
+    }
+
+    size -= 1;
+  }
+
+  return Math.max(minimumSize, Math.min(initialSize, size));
+}
+
+function extractTextLines(text: string) {
+  return text
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function snapToDefault(value: number, defaultValue: number, tolerance: number) {
+  return Math.abs(value - defaultValue) <= tolerance ? defaultValue : value;
+}
+
+function SliderWithDefaultNotch({
+  notchValue,
+  min,
+  max,
+  className,
+  ...props
+}: SliderWithDefaultNotchProps) {
+  if (typeof min !== "number" || typeof max !== "number" || min === max) {
+    return <Slider className={className} min={min} max={max} {...props} />;
+  }
+
+  const notchPercent = ((notchValue - min) / (max - min)) * 100;
+  const currentValue = Array.isArray(props.value) ? props.value[0] : undefined;
+  const shouldShowNotch =
+    typeof currentValue !== "number" || Math.abs(currentValue - notchValue) > 0.0001;
+
+  return (
+    <Slider
+      className={className}
+      min={min}
+      max={max}
+      notchPercent={shouldShowNotch ? notchPercent : undefined}
+      {...props}
+    />
+  );
+}
+
 export default function PdfWorkbench() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const previewFrameRef = useRef<HTMLDivElement | null>(null);
+  const ocrWorkerRef = useRef<TesseractWorker | null>(null);
+  const recipientNameCacheRef = useRef<Map<string, string | null>>(new Map());
 
   const [file, setFile] = useState<File | null>(null);
   const [labelType, setLabelType] = useState<LabelType>("posteItaliane");
-  const [useHalfPageBRT, setUseHalfPageBRT] = useState(false);
+  const [useHalfPageBRT, setUseHalfPageBRT] = useState(true);
+  const [showRecipientName, setShowRecipientName] = useState(true);
+  const [recipientNameFontSize, setRecipientNameFontSize] = useState(18);
   const [offsetX, setOffsetX] = useState(0);
   const [offsetY, setOffsetY] = useState(0);
   const [scaleOffset, setScaleOffset] = useState(0);
@@ -139,6 +387,16 @@ export default function PdfWorkbench() {
   const basePreset = useMemo(
     () => initialPreset(labelType, useHalfPageBRT),
     [labelType, useHalfPageBRT],
+  );
+  const runCropPdf = useEffectEvent(
+    (
+      nextFile: File,
+      nextPreset: CropPreset,
+      horizontalOffset: number,
+      verticalOffset: number,
+    ) => {
+      void cropPdf(nextFile, nextPreset, horizontalOffset, verticalOffset);
+    },
   );
   const isImportUrlValid = useMemo(() => {
     const trimmedUrl = importUrl.trim();
@@ -185,12 +443,30 @@ export default function PdfWorkbench() {
   }, [pdfUrl]);
 
   useEffect(() => {
+    return () => {
+      const worker = ocrWorkerRef.current;
+
+      if (worker) {
+        void worker.terminate();
+        ocrWorkerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (!file) {
       return;
     }
 
-    void cropPdf(file, preset, offsetX, offsetY);
-  }, [file, offsetX, offsetY, preset]);
+    runCropPdf(file, preset, offsetX, offsetY);
+  }, [
+    file,
+    offsetX,
+    offsetY,
+    preset,
+    recipientNameFontSize,
+    showRecipientName,
+  ]);
 
   useEffect(() => {
     const element = previewFrameRef.current;
@@ -251,6 +527,7 @@ export default function PdfWorkbench() {
       return;
     }
 
+    recipientNameCacheRef.current.clear();
     setFile(nextFile);
   }
 
@@ -319,6 +596,188 @@ export default function PdfWorkbench() {
 
     const printWindow = window.open(pdfUrl, "_blank", "noopener,noreferrer");
     printWindow?.focus();
+  }
+
+  function updateRecipientNameFontSize(nextValue: number) {
+    setRecipientNameFontSize(Math.max(10, Math.min(72, nextValue)));
+  }
+
+  async function getOcrWorker() {
+    if (ocrWorkerRef.current) {
+      return ocrWorkerRef.current;
+    }
+
+    const worker = await createWorker(["ita", "eng"], 1, {
+      logger: () => undefined,
+      errorHandler: () => undefined,
+    });
+
+    await worker.setParameters({
+      tessedit_pageseg_mode: "6" as PSM,
+      preserve_interword_spaces: "1",
+      user_defined_dpi: "300",
+    });
+
+    ocrWorkerRef.current = worker;
+    return worker;
+  }
+
+  async function extractPosteItalianeRecipientName(
+    nextFile: File,
+    nextPreset: CropPreset,
+  ) {
+    const cacheKey = `${nextFile.name}:${nextFile.size}:${nextFile.lastModified}`;
+    const cachedRecipientName = recipientNameCacheRef.current.get(cacheKey);
+
+    if (cachedRecipientName !== undefined) {
+      return cachedRecipientName;
+    }
+
+    const arrayBuffer = await nextFile.arrayBuffer();
+    const pdf = await pdfjs.getDocument({ data: arrayBuffer.slice(0) }).promise;
+
+    try {
+      const firstPage = await pdf.getPage(1);
+      const textContent = await firstPage.getTextContent();
+      const pdfText = textContent.items
+        .map((item) => ("str" in item ? item.str : ""))
+        .join("\n");
+      const textRecipientName = extractPosteItalianeRecipientFromTextLines(
+        extractTextLines(pdfText),
+      );
+
+      if (textRecipientName) {
+        recipientNameCacheRef.current.set(cacheKey, textRecipientName);
+        return textRecipientName;
+      }
+
+      const scale = 2.5;
+      const viewport = firstPage.getViewport({ scale });
+      const renderedCanvas = document.createElement("canvas");
+      renderedCanvas.width = Math.ceil(viewport.width);
+      renderedCanvas.height = Math.ceil(viewport.height);
+
+      const context = renderedCanvas.getContext("2d");
+
+      if (!context) {
+        recipientNameCacheRef.current.set(cacheKey, null);
+        return null;
+      }
+
+      await firstPage.render({
+        canvas: renderedCanvas,
+        canvasContext: context,
+        viewport,
+      }).promise;
+
+      const cropCanvas = document.createElement("canvas");
+      const cropWidth = Math.round(
+        (nextPreset.width / Math.max(nextPreset.scale, 0.1)) * scale,
+      );
+      const cropHeight = Math.round(
+        (nextPreset.height / Math.max(nextPreset.scale, 0.1)) * scale,
+      );
+      cropCanvas.width = cropWidth;
+      cropCanvas.height = cropHeight;
+
+      const cropContext = cropCanvas.getContext("2d");
+
+      if (!cropContext) {
+        recipientNameCacheRef.current.set(cacheKey, null);
+        return null;
+      }
+
+      const sourceX = (nextPreset.x / Math.max(nextPreset.scale, 0.1)) * scale;
+      const sourceY =
+        renderedCanvas.height -
+        ((nextPreset.y + nextPreset.height) / Math.max(nextPreset.scale, 0.1)) *
+          scale;
+
+      cropContext.drawImage(
+        renderedCanvas,
+        sourceX,
+        sourceY,
+        cropWidth,
+        cropHeight,
+        0,
+        0,
+        cropWidth,
+        cropHeight,
+      );
+
+      const rotatedCanvas = document.createElement("canvas");
+      const rotate = ((nextPreset.rotate % 360) + 360) % 360;
+      const isQuarterTurn = rotate === 90 || rotate === 270;
+      rotatedCanvas.width = isQuarterTurn
+        ? cropCanvas.height
+        : cropCanvas.width;
+      rotatedCanvas.height = isQuarterTurn
+        ? cropCanvas.width
+        : cropCanvas.height;
+      const rotatedContext = rotatedCanvas.getContext("2d");
+
+      if (!rotatedContext) {
+        recipientNameCacheRef.current.set(cacheKey, null);
+        return null;
+      }
+
+      rotatedContext.fillStyle = "#ffffff";
+      rotatedContext.fillRect(0, 0, rotatedCanvas.width, rotatedCanvas.height);
+      rotatedContext.translate(
+        rotatedCanvas.width / 2,
+        rotatedCanvas.height / 2,
+      );
+      rotatedContext.rotate((rotate * Math.PI) / 180);
+      rotatedContext.drawImage(
+        cropCanvas,
+        -cropCanvas.width / 2,
+        -cropCanvas.height / 2,
+      );
+
+      const recipientRegionCanvas = document.createElement("canvas");
+      recipientRegionCanvas.width = Math.round(
+        rotatedCanvas.width * POSTE_ITALIANE_RECIPIENT_REGION.width,
+      );
+      recipientRegionCanvas.height = Math.round(
+        rotatedCanvas.height * POSTE_ITALIANE_RECIPIENT_REGION.height,
+      );
+      const recipientRegionContext = recipientRegionCanvas.getContext("2d");
+
+      if (!recipientRegionContext) {
+        recipientNameCacheRef.current.set(cacheKey, null);
+        return null;
+      }
+
+      recipientRegionContext.fillStyle = "#ffffff";
+      recipientRegionContext.fillRect(
+        0,
+        0,
+        recipientRegionCanvas.width,
+        recipientRegionCanvas.height,
+      );
+      recipientRegionContext.drawImage(
+        rotatedCanvas,
+        rotatedCanvas.width * POSTE_ITALIANE_RECIPIENT_REGION.x,
+        rotatedCanvas.height * POSTE_ITALIANE_RECIPIENT_REGION.y,
+        recipientRegionCanvas.width,
+        recipientRegionCanvas.height,
+        0,
+        0,
+        recipientRegionCanvas.width,
+        recipientRegionCanvas.height,
+      );
+
+      const worker = await getOcrWorker();
+      const { data } = await worker.recognize(recipientRegionCanvas);
+      const recipientName = extractPosteItalianeRecipientFromTextLines(
+        extractTextLines(data.text),
+      );
+
+      recipientNameCacheRef.current.set(cacheKey, recipientName);
+      return recipientName;
+    } finally {
+      pdf.destroy();
+    }
   }
 
   async function cropPdf(
@@ -439,6 +898,36 @@ export default function PdfWorkbench() {
         height: drawnHeight,
         rotate: degrees(pageRotate),
       });
+
+      if (labelType === "posteItaliane" && showRecipientName) {
+        const recipientName = await extractPosteItalianeRecipientName(
+          nextFile,
+          nextPreset,
+        );
+
+        if (recipientName) {
+          const font = await outputPdf.embedFont(StandardFonts.HelveticaBold);
+          const layout = recipientNameLayout();
+          const fontSize = fittedRecipientFontSize(
+            recipientName,
+            layout.width,
+            recipientNameFontSize,
+            10,
+            font,
+          );
+          const textWidth = font.widthOfTextAtSize(recipientName, fontSize);
+          const textHeight = font.heightAtSize(fontSize);
+
+          outputPage.drawText(recipientName, {
+            x: layout.x + (layout.width - textWidth) / 2,
+            y: layout.y + (layout.height - textHeight) / 2,
+            size: fontSize,
+            font,
+            color: rgb(0, 0, 0),
+            maxWidth: layout.width,
+          });
+        }
+      }
 
       const outputBytes = await outputPdf.save();
 
@@ -576,8 +1065,8 @@ export default function PdfWorkbench() {
 
             {pdfUrl ? (
               <div className="flex min-h-[28rem] flex-col items-center justify-center md:h-full md:min-h-0">
-                <div className="flex w-full items-center justify-center sm:p-10 md:h-full md:min-h-0 md:flex-1 md:p-8">
-                  <div className="flex size-full h-full items-center justify-center aspect-2/3">
+                <div className="flex w-full items-center justify-center p-6 sm:p-10 md:h-full md:min-h-0 md:flex-1 md:p-8">
+                  <div className="flex size-full items-center justify-center aspect-2/3">
                     <div
                       ref={previewFrameRef}
                       className="relative aspect-2/3 w-full max-w-[28rem] overflow-hidden box-border border-2 border-[#1b6b63] rounded-lg bg-white shadow-[0_14px_40px_rgba(8,43,43,0.08)] md:h-full md:w-auto md:max-w-full"
@@ -786,18 +1275,85 @@ export default function PdfWorkbench() {
               </div>
             ) : null}
 
+            {labelType === "posteItaliane" ? (
+              <div className="rounded-[1.2rem] border border-[#16302b10] bg-[#fcfdfc] px-4 py-3">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
+                  <div className="min-w-0 space-y-1">
+                    <div className="text-sm font-medium text-[#16302b]">
+                      Show recipient name
+                    </div>
+                  </div>
+                  <Switch
+                    checked={showRecipientName}
+                    onCheckedChange={setShowRecipientName}
+                    className="shrink-0"
+                  />
+                </div>
+
+                <div className="flex flex-wrap justify-between items-center mt-4 border-t border-[#16302b10] pt-4">
+                  <div className="text-sm font-medium text-[#16302b]">
+                    Recipient name size
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() =>
+                        updateRecipientNameFontSize(recipientNameFontSize - 1)
+                      }
+                      disabled={!showRecipientName}
+                      className="size-8 shrink-0 px-0"
+                      aria-label="Decrease recipient name size"
+                    >
+                      <Minus size={12} />
+                    </Button>
+                    <input
+                      type="number"
+                      min={10}
+                      max={72}
+                      step={1}
+                      value={recipientNameFontSize}
+                      onChange={(event) =>
+                        updateRecipientNameFontSize(
+                          Number(event.target.value) || 18,
+                        )
+                      }
+                      disabled={!showRecipientName}
+                      className="w-10 h-8 appearance-none rounded-md border border-[#16302b18] bg-white px-2 text-center text-sm text-[#16302b] outline-none transition [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none placeholder:text-[#6a8680] focus:border-[#1b6b63] focus:ring-2 focus:ring-[#1b6b63]/15 disabled:cursor-not-allowed disabled:bg-[#16302b08] disabled:text-[#6a8680]"
+                      aria-label="Recipient name size adjustment"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() =>
+                        updateRecipientNameFontSize(recipientNameFontSize + 1)
+                      }
+                      disabled={!showRecipientName}
+                      className="size-8 shrink-0 px-0"
+                      aria-label="Increase recipient name size"
+                    >
+                      <Plus size={12} />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
             <div className="space-y-5">
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-[#56716a]">Horizontal</span>
                   <span className="font-medium text-[#16302b]">{offsetX}</span>
                 </div>
-                <Slider
+                <SliderWithDefaultNotch
                   value={[offsetX]}
+                  notchValue={0}
                   min={-120}
                   max={120}
                   step={1}
-                  onValueChange={([value]) => setOffsetX(value ?? 0)}
+                  onValueChange={([value]) =>
+                    setOffsetX(snapToDefault(value ?? 0, 0, 4))
+                  }
                 />
               </div>
 
@@ -806,12 +1362,15 @@ export default function PdfWorkbench() {
                   <span className="text-[#56716a]">Vertical</span>
                   <span className="font-medium text-[#16302b]">{offsetY}</span>
                 </div>
-                <Slider
+                <SliderWithDefaultNotch
                   value={[offsetY]}
+                  notchValue={0}
                   min={-120}
                   max={120}
                   step={1}
-                  onValueChange={([value]) => setOffsetY(value ?? 0)}
+                  onValueChange={([value]) =>
+                    setOffsetY(snapToDefault(value ?? 0, 0, 4))
+                  }
                 />
               </div>
 
@@ -819,15 +1378,18 @@ export default function PdfWorkbench() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-[#56716a]">Scale</span>
                   <span className="font-medium text-[#16302b]">
-                    {preset.scale.toFixed(2)}x
+                    {Math.round(preset.scale * 100)}%
                   </span>
                 </div>
-                <Slider
+                <SliderWithDefaultNotch
                   value={[scaleOffset]}
+                  notchValue={0}
                   min={-0.5}
-                  max={0.8}
+                  max={0.5}
                   step={0.01}
-                  onValueChange={([value]) => setScaleOffset(value ?? 0)}
+                  onValueChange={([value]) =>
+                    setScaleOffset(snapToDefault(value ?? 0, 0, 0.03))
+                  }
                 />
               </div>
 
@@ -839,8 +1401,9 @@ export default function PdfWorkbench() {
                       {preset.rotate}°
                     </span>
                   </div>
-                  <Slider
+                  <SliderWithDefaultNotch
                     value={[rotationOffset]}
+                    notchValue={0}
                     min={0}
                     max={270}
                     step={90}
@@ -861,6 +1424,7 @@ export default function PdfWorkbench() {
                     setOffsetY(0);
                     setScaleOffset(0);
                     setRotationOffset(0);
+                    setRecipientNameFontSize(18);
                   }}
                 >
                   Reset adjustments
