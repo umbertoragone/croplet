@@ -32,6 +32,7 @@ import {
   ButtonGroup,
   ButtonGroupSeparator,
 } from "@/components/ui/button-group";
+import { ExternalLink } from "@/components/external-link";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -1893,13 +1894,19 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
 
             <div className="md:flex-1" />
 
-            <div className="flex justify-center border-t border-[#16302b10] pt-4">
+            <div className="flex items-center justify-center gap-4 border-t border-[#16302b10] pt-4">
               <Link
                 href="/privacy"
                 className="text-sm font-medium text-[#56716a] transition-colors hover:text-[#1b6b63]"
               >
                 {messages.controls.privacy}
               </Link>
+              <ExternalLink
+                href="https://github.com/umbertoragone/croplet"
+                className="text-sm font-medium text-[#56716a] transition-colors hover:text-[#1b6b63]"
+              >
+                {messages.controls.viewOnGitHub}
+              </ExternalLink>
             </div>
           </div>
         </div>

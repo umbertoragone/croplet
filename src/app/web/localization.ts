@@ -70,6 +70,7 @@ type WebMessages = {
       rotation: string;
       resetAdjustments: string;
       privacy: string;
+      viewOnGitHub: string;
     };
   };
 };
@@ -145,6 +146,7 @@ const messages: Record<WebLocale, WebMessages> = {
         rotation: "Rotation",
         resetAdjustments: "Reset adjustments",
         privacy: "Privacy",
+        viewOnGitHub: "View on GitHub",
       },
     },
   },
@@ -218,6 +220,7 @@ const messages: Record<WebLocale, WebMessages> = {
         rotation: "Rotazione",
         resetAdjustments: "Reimposta regolazioni",
         privacy: "Privacy",
+        viewOnGitHub: "Vedi su GitHub",
       },
     },
   },
