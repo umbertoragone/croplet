@@ -47,7 +47,7 @@ import { Switch } from "@/components/ui/switch";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 
-import type { WebLocale } from "./localization";
+import type { WebLocale, getWebMessages } from "./localization";
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
@@ -587,56 +587,7 @@ function SliderWithDefaultNotch({
 
 type PdfWorkbenchProps = {
   locale: WebLocale;
-  messages: {
-    labelOptions: Record<LabelType, string>;
-    errors: {
-      choosePdf: string;
-      enterPdfUrl: string;
-      enterValidUrl: string;
-      fetchPdfUrl: string;
-      urlNotPdf: string;
-      importFailed: string;
-      noReadablePage: string;
-      noProcessedPage: string;
-      processFailed: string;
-    };
-    output: {
-      eyebrow: string;
-      title: string;
-      actionsLabel: string;
-      removePdf: string;
-      replacePdf: string;
-      exportPdf: string;
-      print: string;
-      dragTitle: string;
-      dragDescription: string;
-      choosePdf: string;
-      importDivider: string;
-      pdfUrl: string;
-      pdfUrlPlaceholder: string;
-      importingPdf: string;
-      importPdfFromUrl: string;
-    };
-    controls: {
-      eyebrow: string;
-      title: string;
-      labelType: string;
-      chooseLabelType: string;
-      useHalfPage: string;
-      useHalfPageHint: string;
-      showRecipientName: string;
-      recipientNameSize: string;
-      decreaseRecipientNameSize: string;
-      increaseRecipientNameSize: string;
-      recipientNameSizeAdjustment: string;
-      horizontal: string;
-      vertical: string;
-      scale: string;
-      rotation: string;
-      resetAdjustments: string;
-      privacy: string;
-    };
-  };
+  messages: ReturnType<typeof getWebMessages>["workbench"];
 };
 
 export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
