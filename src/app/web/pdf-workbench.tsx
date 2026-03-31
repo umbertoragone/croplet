@@ -15,6 +15,7 @@ import {
   Download,
   FileUp,
   Link as LinkIcon,
+  LoaderCircle,
   Minus,
   Plus,
   Printer,
@@ -1916,14 +1917,23 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                               ? messages.output.importingPdf
                               : messages.output.importPdfFromUrl
                           }
+                          aria-busy={isImportingUrl}
                           onClick={(event) => {
                             event.stopPropagation();
                             void handleImportFromUrl();
                           }}
                           disabled={isImportingUrl || !isImportUrlValid}
-                          className="absolute right-1.5 top-1/2 h-9 w-9 -translate-y-1/2 px-0 disabled:bg-[#16302b]/45"
+                          className={cn(
+                            "absolute right-1.5 top-1/2 h-9 w-9 -translate-y-1/2 px-0 disabled:bg-[#16302b]/45",
+                            isImportingUrl &&
+                              "disabled:pointer-events-auto disabled:cursor-not-allowed",
+                          )}
                         >
-                          <ArrowRight size={15} />
+                          {isImportingUrl ? (
+                            <LoaderCircle size={15} className="animate-spin" />
+                          ) : (
+                            <ArrowRight size={15} />
+                          )}
                         </Button>
                       </div>
                     </div>
