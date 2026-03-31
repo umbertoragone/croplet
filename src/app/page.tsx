@@ -4,6 +4,7 @@ import Link from "next/link";
 import { APP_STORE_URL } from "@/lib/app-store";
 import PhoneFrame from "@/components/PhoneFrame";
 import Header from "@/components/Header";
+import WebLink from "@/components/web-link";
 import StandaloneLaunchRedirect from "./standalone-launch-redirect";
 import {
   ScanText,
@@ -333,9 +334,9 @@ export default function Home() {
           <span>© {new Date().getFullYear()} Umberto Ragone</span>
         </div>
         <div className="flex items-center gap-5">
-          <Link href="/web" className="hover:text-[#1b6b63] transition-colors">
+          <WebLink className="hover:text-[#1b6b63] transition-colors">
             Web
-          </Link>
+          </WebLink>
           <Link
             href="/privacy"
             className="hover:text-[#1b6b63] transition-colors"

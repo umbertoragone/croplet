@@ -2,6 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import WebHeaderMenu from "./web-header-menu";
+import WebLink from "./web-link";
+import WebRoutePrefetch from "./web-route-prefetch";
 
 interface HeaderProps {
   currentPath?: "/" | "/privacy" | "/web";
@@ -72,9 +74,9 @@ function MarketingNav({
           : "flex items-center gap-6 text-sm"
       }
     >
-      <Link href="/web" className={navLinkClass(currentPath === "/web")}>
+      <WebLink className={navLinkClass(currentPath === "/web")}>
         Web
-      </Link>
+      </WebLink>
       <Link
         href="/privacy"
         className={navLinkClass(currentPath === "/privacy")}
@@ -146,6 +148,7 @@ export default function Header({
 
   return (
     <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-3 py-4 sm:px-6 sm:py-5">
+      <WebRoutePrefetch />
       <BrandMark />
       <div className="md:hidden">
         <WebHeaderMenu headerContent={<BrandMark />}>
