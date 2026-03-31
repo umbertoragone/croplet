@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -593,6 +594,7 @@ type PdfWorkbenchProps = {
 export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const previewFrameRef = useRef<HTMLDivElement | null>(null);
+  const dropZoneRef = useRef<HTMLDivElement | null>(null);
   const ocrWorkerRef = useRef<TesseractWorker | null>(null);
   const recipientNameCacheRef = useRef<Map<string, string | null>>(new Map());
   const labelDetectionCacheRef = useRef<Map<string, DetectedLabel | null>>(
@@ -600,6 +602,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
   );
   const fileSelectionVersionRef = useRef(0);
   const cropRequestVersionRef = useRef(0);
+  const dragDepthRef = useRef(0);
 
   const [file, setFile] = useState<File | null>(null);
   const [labelType, setLabelType] = useState<LabelType>("posteItaliane");
@@ -695,6 +698,40 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
   }, [pdfUrl]);
 
   useEffect(() => {
+    function isWithinDropZone(target: EventTarget | null) {
+      return target instanceof Node && dropZoneRef.current?.contains(target);
+    }
+
+    function preventWindowFileDrop(event: DragEvent) {
+      if (!dataTransferHasFiles(event.dataTransfer)) {
+        return;
+      }
+
+      if (event.type === "dragover") {
+        event.dataTransfer!.dropEffect = isWithinDropZone(event.target)
+          ? "copy"
+          : "none";
+      }
+
+      if (isWithinDropZone(event.target)) {
+        return;
+      }
+
+      event.preventDefault();
+      dragDepthRef.current = 0;
+      setIsDragging(false);
+    }
+
+    window.addEventListener("dragover", preventWindowFileDrop, true);
+    window.addEventListener("drop", preventWindowFileDrop, true);
+
+    return () => {
+      window.removeEventListener("dragover", preventWindowFileDrop, true);
+      window.removeEventListener("drop", preventWindowFileDrop, true);
+    };
+  }, []);
+
+  useEffect(() => {
     return () => {
       const worker = ocrWorkerRef.current;
 
@@ -749,6 +786,90 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
     inputRef.current?.click();
   }
 
+  function isPdfFile(nextFile: File) {
+    return (
+      nextFile.type === "application/pdf" ||
+      nextFile.name.toLowerCase().endsWith(".pdf")
+    );
+  }
+
+  function dataTransferHasFiles(dataTransfer: DataTransfer | null) {
+    if (!dataTransfer) {
+      return false;
+    }
+
+    if (Array.from(dataTransfer.types).includes("Files")) {
+      return true;
+    }
+
+    if (dataTransfer.items.length > 0) {
+      return Array.from(dataTransfer.items).some((item) => item.kind === "file");
+    }
+
+    return dataTransfer.files.length > 0;
+  }
+
+  function getDroppedFile(dataTransfer: DataTransfer | null) {
+    if (!dataTransfer) {
+      return null;
+    }
+
+    if (dataTransfer.files.length > 0) {
+      return dataTransfer.files[0] ?? null;
+    }
+
+    return (
+      Array.from(dataTransfer.items).find((item) => item.kind === "file")?.getAsFile() ??
+      null
+    );
+  }
+
+  function handleDragEnter(event: React.DragEvent<HTMLDivElement>) {
+    if (!dataTransferHasFiles(event.dataTransfer)) {
+      return;
+    }
+
+    dragDepthRef.current += 1;
+    setIsDragging(true);
+  }
+
+  function handleDragOver(event: React.DragEvent<HTMLDivElement>) {
+    if (!dataTransferHasFiles(event.dataTransfer)) {
+      if (isDragging) {
+        dragDepthRef.current = 0;
+        setIsDragging(false);
+      }
+      return;
+    }
+
+    event.preventDefault();
+
+    if (!isDragging) {
+      setIsDragging(true);
+    }
+  }
+
+  function handleDragLeave() {
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+
+    if (dragDepthRef.current === 0) {
+      setIsDragging(false);
+    }
+  }
+
+  function handleDrop(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    dragDepthRef.current = 0;
+    setIsDragging(false);
+
+    if (!dataTransferHasFiles(event.dataTransfer)) {
+      return;
+    }
+
+    handleSelectedFile(getDroppedFile(event.dataTransfer));
+  }
+
   function clearSelectedPdf() {
     fileSelectionVersionRef.current += 1;
     setFile(null);
@@ -771,11 +892,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
       return;
     }
 
-    const looksLikePdf =
-      nextFile.type === "application/pdf" ||
-      nextFile.name.toLowerCase().endsWith(".pdf");
-
-    if (!looksLikePdf) {
+    if (!isPdfFile(nextFile)) {
       toast.error(messages.errors.choosePdf);
       return;
     }
@@ -1420,26 +1537,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
             </div>
           </div>
 
-          <div
-            onDragOver={(event) => {
-              event.preventDefault();
-              setIsDragging(true);
-            }}
-            onDragLeave={(event) => {
-              event.preventDefault();
-              setIsDragging(false);
-            }}
-            onDrop={(event) => {
-              event.preventDefault();
-              setIsDragging(false);
-              handleSelectedFile(event.dataTransfer.files?.[0] ?? null);
-            }}
-            className={`mt-6 min-h-[28rem] overflow-hidden rounded-[2rem] border bg-[linear-gradient(180deg,#fdfefd_0%,#f6fbfa_100%)] transition md:min-h-0 md:flex-1 lg:mt-6 ${
-              isDragging
-                ? "border-[#1b6b63] ring-4 ring-[#1b6b63]/10"
-                : "border-[#16302b14]"
-            }`}
-          >
+          <div className="mt-6 min-h-[28rem] overflow-hidden rounded-[2rem] border border-[#16302b14] bg-[linear-gradient(180deg,#fdfefd_0%,#f6fbfa_100%)] transition md:min-h-0 md:flex-1 lg:mt-6">
             <input
               ref={inputRef}
               type="file"
@@ -1488,8 +1586,13 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
             ) : (
               <div className="flex min-h-[28rem] items-center justify-center p-6 md:h-full md:min-h-0">
                 <div
+                  ref={dropZoneRef}
                   role="button"
                   tabIndex={0}
+                  onDragEnter={handleDragEnter}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
                   onClick={openFileDialog}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
@@ -1497,7 +1600,12 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                       openFileDialog();
                     }
                   }}
-                  className="block w-full max-w-lg cursor-pointer rounded-[1.8rem] border-2 border-dashed border-[#16302b20] bg-white/80 p-8 text-center transition hover:border-[#1b6b63] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1b6b63]/20"
+                  className={cn(
+                    "block w-full max-w-lg rounded-[1.8rem] border-2 border-dashed bg-white/80 p-8 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1b6b63]/20",
+                    isDragging
+                      ? "cursor-copy border-[#1b6b63] bg-white"
+                      : "cursor-pointer border-[#16302b20] hover:border-[#1b6b63] hover:bg-white",
+                  )}
                 >
                   <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#e6f3f1] text-[#1b6b63]">
                     <UploadCloud size={26} />
