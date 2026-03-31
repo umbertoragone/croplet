@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  type CSSProperties,
   useCallback,
   useEffect,
   useEffectEvent,
@@ -743,6 +744,13 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
     labelType === "manualEditor"
       ? { min: MANUAL_SCALE_OFFSET_MIN, max: MANUAL_SCALE_OFFSET_MAX }
       : { min: DEFAULT_SCALE_OFFSET_MIN, max: DEFAULT_SCALE_OFFSET_MAX };
+  const previewCursorStyle =
+    labelType === "manualEditor"
+      ? ({
+          WebkitCursor: isPreviewPanning ? "grabbing" : "grab",
+          cursor: isPreviewPanning ? "grabbing" : "grab",
+        } as CSSProperties)
+      : undefined;
 
   const previewCanvasWidth =
     previewFrameWidth > 4 ? previewFrameWidth - 4 : undefined;
@@ -1757,16 +1765,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                       onPointerMove={handlePreviewPointerMove}
                       onPointerUp={(event) => finishPreviewPan(event, true)}
                       onPointerCancel={(event) => finishPreviewPan(event, false)}
-                      style={
-                        labelType === "manualEditor"
-                          ? {
-                              WebkitCursor: isPreviewPanning
-                                ? "grabbing"
-                                : "grab",
-                              cursor: isPreviewPanning ? "grabbing" : "grab",
-                            }
-                          : undefined
-                      }
+                      style={previewCursorStyle}
                       className={cn(
                         "relative aspect-2/3 w-full max-w-[28rem] overflow-hidden box-border border-2 border-[#1b6b63] rounded-lg bg-white shadow-[0_14px_40px_rgba(8,43,43,0.08)] md:h-full md:w-auto md:max-w-full",
                         labelType === "manualEditor" &&
