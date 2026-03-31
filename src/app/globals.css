@@ -37,10 +37,24 @@ body {
 .pdf-preview-document > div,
 .pdf-preview-page {
   width: 100%;
+  cursor: inherit !important;
 }
 
 .pdf-preview-page canvas {
   display: block;
   width: 100% !important;
   height: auto !important;
+  cursor: inherit !important;
+}
+
+.pdf-preview-grab,
+.pdf-preview-grab * {
+  cursor: -webkit-grab !important;
+  cursor: grab !important;
+}
+
+.pdf-preview-grabbing,
+.pdf-preview-grabbing * {
+  cursor: -webkit-grabbing !important;
+  cursor: grabbing !important;
 }

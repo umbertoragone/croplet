@@ -93,6 +93,16 @@ type SliderWithDefaultNotchProps = React.ComponentProps<typeof Slider> & {
 
 const OUTPUT_PAGE_WIDTH = 288;
 const OUTPUT_PAGE_HEIGHT = 432;
+const DEFAULT_OFFSET_MIN = -120;
+const DEFAULT_OFFSET_MAX = 120;
+const MANUAL_OFFSET_MIN = -240;
+const MANUAL_OFFSET_MAX = 240;
+const DEFAULT_SCALE_OFFSET_MIN = -0.5;
+const DEFAULT_SCALE_OFFSET_MAX = 0.5;
+const MANUAL_SCALE_OFFSET_MIN = -0.8;
+const MANUAL_SCALE_OFFSET_MAX = 2;
+const ROTATION_OFFSET_MIN = -270;
+const ROTATION_OFFSET_MAX = 270;
 const INPOST_LOGO_REGION = {
   x: 0.62,
   y: 0.58,
@@ -174,7 +184,7 @@ const BASE_PRESETS: Record<Exclude<LabelType, "brt">, CropPreset> = {
     scale: 1.03,
   },
   ups: { x: 60, y: 60, width: 288, height: 432, rotate: 0, scale: 1 },
-  dhl: { x: 50, y: 45, width: 288, height: 432, rotate: 0, scale: 0.85 },
+  dhl: { x: 82, y: 90, width: 288, height: 432, rotate: 0, scale: 0.85 },
   manualEditor: { x: 48, y: 45, width: 288, height: 432, rotate: 0, scale: 1 },
 };
 
@@ -511,8 +521,18 @@ function extractTextLines(text: string) {
     .filter(Boolean);
 }
 
-function snapToDefault(value: number, defaultValue: number, tolerance: number) {
-  return Math.abs(value - defaultValue) <= tolerance ? defaultValue : value;
+function clampValue(value: number, minimum: number, maximum: number) {
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
+function clampOffsetValue(value: number, minimum: number, maximum: number) {
+  return clampValue(Math.round(value), minimum, maximum);
+}
+
+function clampScaleOffsetValue(value: number, minimum: number, maximum: number) {
+  const roundedValue = Math.round(value * 100) / 100;
+
+  return clampValue(roundedValue, minimum, maximum);
 }
 
 function SliderWithDefaultNotch({
@@ -603,6 +623,15 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
   const fileSelectionVersionRef = useRef(0);
   const cropRequestVersionRef = useRef(0);
   const dragDepthRef = useRef(0);
+  const previewPanRef = useRef<{
+    frameHeight: number;
+    frameWidth: number;
+    pointerId: number;
+    startClientX: number;
+    startClientY: number;
+    startOffsetX: number;
+    startOffsetY: number;
+  } | null>(null);
 
   const [file, setFile] = useState<File | null>(null);
   const [labelType, setLabelType] = useState<LabelType>("posteItaliane");
@@ -619,6 +648,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isImportingUrl, setIsImportingUrl] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isPreviewPanning, setIsPreviewPanning] = useState(false);
   const controlsDisabled = file === null;
   const { trigger } = useWebHaptics();
 
@@ -653,6 +683,33 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
       );
     },
   );
+  const handlePreviewWheelEvent = useEffectEvent((event: WheelEvent) => {
+    if (labelType !== "manualEditor" || !file) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const deltaMultiplier =
+      event.deltaMode === WheelEvent.DOM_DELTA_LINE
+        ? 16
+        : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+          ? previewFrameRef.current?.clientHeight ?? 0
+          : 1;
+    const normalizedDelta = event.deltaY * deltaMultiplier;
+    const nextScaleOffset = clampScaleOffsetValue(
+      scaleOffset - normalizedDelta / 1600,
+      MANUAL_SCALE_OFFSET_MIN,
+      MANUAL_SCALE_OFFSET_MAX,
+    );
+
+    if (nextScaleOffset === scaleOffset) {
+      return;
+    }
+
+    updateScaleOffset(nextScaleOffset);
+  });
   const isImportUrlValid = useMemo(() => {
     const trimmedUrl = importUrl.trim();
 
@@ -670,7 +727,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
 
   const preset = useMemo<CropPreset>(() => {
     const nextRotate =
-      (((basePreset.rotate + rotationOffset) % 360) + 360) % 360;
+      (((basePreset.rotate - rotationOffset) % 360) + 360) % 360;
 
     return {
       ...basePreset,
@@ -678,6 +735,14 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
       scale: Math.max(0.2, basePreset.scale + scaleOffset),
     };
   }, [basePreset, rotationOffset, scaleOffset]);
+  const offsetBounds =
+    labelType === "manualEditor"
+      ? { min: MANUAL_OFFSET_MIN, max: MANUAL_OFFSET_MAX }
+      : { min: DEFAULT_OFFSET_MIN, max: DEFAULT_OFFSET_MAX };
+  const scaleOffsetBounds =
+    labelType === "manualEditor"
+      ? { min: MANUAL_SCALE_OFFSET_MIN, max: MANUAL_SCALE_OFFSET_MAX }
+      : { min: DEFAULT_SCALE_OFFSET_MIN, max: DEFAULT_SCALE_OFFSET_MAX };
 
   const previewCanvasWidth =
     previewFrameWidth > 4 ? previewFrameWidth - 4 : undefined;
@@ -759,6 +824,11 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
   ]);
 
   useEffect(() => {
+    previewPanRef.current = null;
+    setIsPreviewPanning(false);
+  }, [file, labelType]);
+
+  useEffect(() => {
     const element = previewFrameRef.current;
 
     if (!element) {
@@ -780,7 +850,25 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
     observer.observe(element);
 
     return () => observer.disconnect();
-  }, []);
+  }, [pdfUrl]);
+
+  useEffect(() => {
+    const element = previewFrameRef.current;
+
+    if (!element) {
+      return;
+    }
+
+    const onWheel = (event: WheelEvent) => {
+      handlePreviewWheelEvent(event);
+    };
+
+    element.addEventListener("wheel", onWheel, { passive: false });
+
+    return () => {
+      element.removeEventListener("wheel", onWheel);
+    };
+  }, [pdfUrl]);
 
   function openFileDialog() {
     inputRef.current?.click();
@@ -872,6 +960,8 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
 
   function clearSelectedPdf() {
     fileSelectionVersionRef.current += 1;
+    previewPanRef.current = null;
+    setIsPreviewPanning(false);
     setFile(null);
     setImportUrl("");
     setPdfUrl((currentUrl) => {
@@ -1291,103 +1381,104 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
         throw new Error(messages.errors.noReadablePage);
       }
 
-      firstPage.setCropBox(
-        nextPreset.x,
-        nextPreset.y,
-        nextPreset.width,
-        nextPreset.height,
-      );
-
-      if (nextPreset.rotate !== 0) {
-        firstPage.setRotation(degrees(nextPreset.rotate));
-      }
-
-      let intermediateBytes: Uint8Array;
-
-      if (nextPreset.scale !== 1) {
-        const scaledPdf = await PDFDocument.create();
-        const [copiedPage] = await scaledPdf.copyPages(workingPdf, [0]);
-        copiedPage.setCropBox(
-          nextPreset.x,
-          nextPreset.y,
-          nextPreset.width,
-          nextPreset.height,
-        );
-        copiedPage.scale(nextPreset.scale, nextPreset.scale);
-        scaledPdf.addPage(copiedPage);
-        intermediateBytes = await scaledPdf.save();
-      } else {
-        intermediateBytes = await workingPdf.save();
-      }
-
-      const processedPdf = await PDFDocument.load(intermediateBytes);
-      const processedPage = processedPdf.getPages()[0];
-
-      if (!processedPage) {
-        throw new Error(messages.errors.noProcessedPage);
-      }
-
-      const cropBox = processedPage.getCropBox();
       const outputPdf = await PDFDocument.create();
       const outputPage = outputPdf.addPage([
         OUTPUT_PAGE_WIDTH,
         OUTPUT_PAGE_HEIGHT,
       ]);
+      const { width: pageWidth, height: pageHeight } = firstPage.getSize();
+      const sourcePageRotate =
+        ((firstPage.getRotation().angle % 360) + 360) % 360;
+      const pageRotate = (sourcePageRotate + nextPreset.rotate) % 360;
+      const focusCenter =
+        nextLabelType === "manualEditor"
+          ? {
+              x: pageWidth / 2,
+              y: pageHeight / 2,
+            }
+          : {
+              x: nextPreset.x + nextPreset.width / 2,
+              y: nextPreset.y + nextPreset.height / 2,
+            };
+      const embeddedRegion =
+        nextLabelType === "manualEditor"
+          ? {
+              left: 0,
+              bottom: 0,
+              right: pageWidth,
+              top: pageHeight,
+            }
+          : (() => {
+              const sourceScale = Math.max(nextPreset.scale, 0.1);
+              const sourceWidth = nextPreset.width / sourceScale;
+              const sourceHeight = nextPreset.height / sourceScale;
+              const unclampedLeft = focusCenter.x - sourceWidth / 2;
+              const unclampedBottom = focusCenter.y - sourceHeight / 2;
+
+              return {
+                left: clampValue(unclampedLeft, 0, pageWidth),
+                bottom: clampValue(unclampedBottom, 0, pageHeight),
+                right: clampValue(unclampedLeft + sourceWidth, 0, pageWidth),
+                top: clampValue(unclampedBottom + sourceHeight, 0, pageHeight),
+              };
+            })();
       const embeddedProcessedPage = await outputPdf.embedPage(
-        processedPage,
-        {
-          left: cropBox.x,
-          bottom: cropBox.y,
-          right: cropBox.x + cropBox.width,
-          top: cropBox.y + cropBox.height,
-        },
-        [1, 0, 0, 1, -cropBox.x, -cropBox.y],
+        firstPage,
+        embeddedRegion,
+        [1, 0, 0, 1, -embeddedRegion.left, -embeddedRegion.bottom],
       );
-      const pageRotate =
-        ((processedPage.getRotation().angle % 360) + 360) % 360;
-      const displayWidth =
-        pageRotate === 90 || pageRotate === 270
-          ? embeddedProcessedPage.height
-          : embeddedProcessedPage.width;
-      const displayHeight =
-        pageRotate === 90 || pageRotate === 270
-          ? embeddedProcessedPage.width
-          : embeddedProcessedPage.height;
-      const fitScale = Math.min(
-        OUTPUT_PAGE_WIDTH / displayWidth,
-        OUTPUT_PAGE_HEIGHT / displayHeight,
-      );
+      const focusWidth = embeddedProcessedPage.width;
+      const focusHeight = embeddedProcessedPage.height;
+      const embeddedFocusCenter =
+        nextLabelType === "manualEditor"
+          ? focusCenter
+          : {
+              x: embeddedProcessedPage.width / 2,
+              y: embeddedProcessedPage.height / 2,
+            };
+      const rotatedFocusWidth =
+        pageRotate === 90 || pageRotate === 270 ? focusHeight : focusWidth;
+      const rotatedFocusHeight =
+        pageRotate === 90 || pageRotate === 270 ? focusWidth : focusHeight;
+      const fitScale =
+        Math.min(
+          OUTPUT_PAGE_WIDTH / rotatedFocusWidth,
+          OUTPUT_PAGE_HEIGHT / rotatedFocusHeight,
+        ) * (nextLabelType === "manualEditor" ? nextPreset.scale : 1);
       const drawnWidth = embeddedProcessedPage.width * fitScale;
       const drawnHeight = embeddedProcessedPage.height * fitScale;
-
+      const targetCenter = {
+        x: OUTPUT_PAGE_WIDTH / 2 + horizontalOffset,
+        y: OUTPUT_PAGE_HEIGHT / 2 - verticalOffset,
+      };
       const positionedPage = (() => {
         switch (pageRotate) {
           case 90:
             return {
-              x: (OUTPUT_PAGE_WIDTH + drawnHeight) / 2,
-              y: (OUTPUT_PAGE_HEIGHT - drawnWidth) / 2,
+              x: targetCenter.x + embeddedFocusCenter.y * fitScale,
+              y: targetCenter.y - embeddedFocusCenter.x * fitScale,
             };
           case 180:
             return {
-              x: (OUTPUT_PAGE_WIDTH + drawnWidth) / 2,
-              y: (OUTPUT_PAGE_HEIGHT + drawnHeight) / 2,
+              x: targetCenter.x + embeddedFocusCenter.x * fitScale,
+              y: targetCenter.y + embeddedFocusCenter.y * fitScale,
             };
           case 270:
             return {
-              x: (OUTPUT_PAGE_WIDTH - drawnHeight) / 2,
-              y: (OUTPUT_PAGE_HEIGHT + drawnWidth) / 2,
+              x: targetCenter.x - embeddedFocusCenter.y * fitScale,
+              y: targetCenter.y + embeddedFocusCenter.x * fitScale,
             };
           default:
             return {
-              x: (OUTPUT_PAGE_WIDTH - drawnWidth) / 2,
-              y: (OUTPUT_PAGE_HEIGHT - drawnHeight) / 2,
+              x: targetCenter.x - embeddedFocusCenter.x * fitScale,
+              y: targetCenter.y - embeddedFocusCenter.y * fitScale,
             };
         }
       })();
 
       outputPage.drawPage(embeddedProcessedPage, {
-        x: positionedPage.x - horizontalOffset,
-        y: positionedPage.y + verticalOffset,
+        x: positionedPage.x,
+        y: positionedPage.y,
         width: drawnWidth,
         height: drawnHeight,
         rotate: degrees(pageRotate),
@@ -1461,6 +1552,114 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
         setIsProcessing(false);
       }
     }
+  }
+
+  function handlePreviewPointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    if (labelType !== "manualEditor" || !file || event.button !== 0) {
+      return;
+    }
+
+    const frameRect = event.currentTarget.getBoundingClientRect();
+
+    if (frameRect.width <= 0 || frameRect.height <= 0) {
+      return;
+    }
+
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    previewPanRef.current = {
+      frameHeight: frameRect.height,
+      frameWidth: frameRect.width,
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startOffsetX: offsetX,
+      startOffsetY: offsetY,
+    };
+    setIsPreviewPanning(true);
+  }
+
+  function handlePreviewPointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    const interaction = previewPanRef.current;
+
+    if (!interaction || interaction.pointerId !== event.pointerId) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const deltaX =
+      ((event.clientX - interaction.startClientX) / interaction.frameWidth) *
+      OUTPUT_PAGE_WIDTH;
+    const deltaY =
+      ((event.clientY - interaction.startClientY) / interaction.frameHeight) *
+      OUTPUT_PAGE_HEIGHT;
+
+    setOffsetX(
+      clampOffsetValue(
+        interaction.startOffsetX + deltaX,
+        MANUAL_OFFSET_MIN,
+        MANUAL_OFFSET_MAX,
+      ),
+    );
+    setOffsetY(
+      clampOffsetValue(
+        interaction.startOffsetY + deltaY,
+        MANUAL_OFFSET_MIN,
+        MANUAL_OFFSET_MAX,
+      ),
+    );
+  }
+
+  function updateScaleOffset(nextValue: number) {
+    const clampedValue = clampScaleOffsetValue(
+      nextValue,
+      scaleOffsetBounds.min,
+      scaleOffsetBounds.max,
+    );
+    const nextScale = Math.max(0.2, basePreset.scale + clampedValue);
+    const currentScale = Math.max(0.2, preset.scale);
+
+    if (Math.abs(nextScale - currentScale) <= 0.0001) {
+      setScaleOffset(clampedValue);
+      return;
+    }
+
+    const scaleRatio = nextScale / currentScale;
+
+    setScaleOffset(clampedValue);
+    setOffsetX((currentOffset) =>
+      clampOffsetValue(
+        currentOffset * scaleRatio,
+        offsetBounds.min,
+        offsetBounds.max,
+      ),
+    );
+    setOffsetY((currentOffset) =>
+      clampOffsetValue(
+        currentOffset * scaleRatio,
+        offsetBounds.min,
+        offsetBounds.max,
+      ),
+    );
+  }
+
+  function finishPreviewPan(
+    event: React.PointerEvent<HTMLDivElement>,
+    releasePointerCapture: boolean,
+  ) {
+    const interaction = previewPanRef.current;
+
+    if (!interaction || interaction.pointerId !== event.pointerId) {
+      return;
+    }
+
+    if (releasePointerCapture && event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    previewPanRef.current = null;
+    setIsPreviewPanning(false);
   }
 
   return (
@@ -1554,7 +1753,28 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                   <div className="flex size-full items-center justify-center aspect-2/3">
                     <div
                       ref={previewFrameRef}
-                      className="relative aspect-2/3 w-full max-w-[28rem] overflow-hidden box-border border-2 border-[#1b6b63] rounded-lg bg-white shadow-[0_14px_40px_rgba(8,43,43,0.08)] md:h-full md:w-auto md:max-w-full"
+                      onPointerDown={handlePreviewPointerDown}
+                      onPointerMove={handlePreviewPointerMove}
+                      onPointerUp={(event) => finishPreviewPan(event, true)}
+                      onPointerCancel={(event) => finishPreviewPan(event, false)}
+                      style={
+                        labelType === "manualEditor"
+                          ? {
+                              WebkitCursor: isPreviewPanning
+                                ? "grabbing"
+                                : "grab",
+                              cursor: isPreviewPanning ? "grabbing" : "grab",
+                            }
+                          : undefined
+                      }
+                      className={cn(
+                        "relative aspect-2/3 w-full max-w-[28rem] overflow-hidden box-border border-2 border-[#1b6b63] rounded-lg bg-white shadow-[0_14px_40px_rgba(8,43,43,0.08)] md:h-full md:w-auto md:max-w-full",
+                        labelType === "manualEditor" &&
+                          "touch-none select-none pdf-preview-grab",
+                        labelType === "manualEditor" &&
+                          isPreviewPanning &&
+                          "pdf-preview-grabbing",
+                      )}
                     >
                       {isProcessing ? (
                         <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/72 backdrop-blur-[1px]">
@@ -1852,14 +2072,12 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                 <SliderWithDefaultNotch
                   value={[offsetX]}
                   notchValue={0}
-                  min={-120}
-                  max={120}
+                  min={offsetBounds.min}
+                  max={offsetBounds.max}
                   step={1}
                   disabled={controlsDisabled}
                   onPassNotch={triggerSelectionHaptic}
-                  onValueChange={([value]) =>
-                    setOffsetX(snapToDefault(value ?? 0, 0, 4))
-                  }
+                  onValueChange={([value]) => setOffsetX(value ?? 0)}
                 />
               </div>
 
@@ -1873,14 +2091,12 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                 <SliderWithDefaultNotch
                   value={[offsetY]}
                   notchValue={0}
-                  min={-120}
-                  max={120}
+                  min={offsetBounds.min}
+                  max={offsetBounds.max}
                   step={1}
                   disabled={controlsDisabled}
                   onPassNotch={triggerSelectionHaptic}
-                  onValueChange={([value]) =>
-                    setOffsetY(snapToDefault(value ?? 0, 0, 4))
-                  }
+                  onValueChange={([value]) => setOffsetY(value ?? 0)}
                 />
               </div>
 
@@ -1896,14 +2112,12 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                 <SliderWithDefaultNotch
                   value={[scaleOffset]}
                   notchValue={0}
-                  min={-0.5}
-                  max={0.5}
+                  min={scaleOffsetBounds.min}
+                  max={scaleOffsetBounds.max}
                   step={0.01}
                   disabled={controlsDisabled}
                   onPassNotch={triggerSelectionHaptic}
-                  onValueChange={([value]) =>
-                    setScaleOffset(snapToDefault(value ?? 0, 0, 0.03))
-                  }
+                  onValueChange={([value]) => updateScaleOffset(value ?? 0)}
                 />
               </div>
 
@@ -1914,14 +2128,14 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                       {messages.controls.rotation}
                     </span>
                     <span className="font-medium text-[#16302b]">
-                      {preset.rotate}°
+                      {rotationOffset}°
                     </span>
                   </div>
                   <SliderWithDefaultNotch
                     value={[rotationOffset]}
                     notchValue={0}
-                    min={0}
-                    max={270}
+                    min={ROTATION_OFFSET_MIN}
+                    max={ROTATION_OFFSET_MAX}
                     step={90}
                     disabled={controlsDisabled}
                     onPassNotch={triggerSelectionHaptic}
