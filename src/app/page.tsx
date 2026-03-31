@@ -17,13 +17,13 @@ import {
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://croplet.app"),
-  title: "A4 to 4×6″ Label Cropper",
+  title: 'A4 to 4×6" Label Cropper',
   description:
-    "Croplet is the iOS app that automatically crops A4 shipping label PDFs to 4×6″, ready for thermal printing. Supports Poste Italiane, BRT, InPost, UPS, DHL, and more.",
+    'Croplet is the iOS app that automatically crops A4 shipping label PDFs to 4×6", ready for thermal printing. Supports Poste Italiane, BRT, InPost, UPS, DHL, and more.',
   openGraph: {
-    title: "Croplet — A4 to 4×6″ Label Cropper",
+    title: 'Croplet — A4 to 4×6" Label Cropper',
     description:
-      "Automatically crop A4 shipping label PDFs to 4×6″ for thermal printing. On-device OCR, multi-carrier support, export to PDF or PNG.",
+      'Automatically crop A4 shipping label PDFs to 4×6" for thermal printing. On-device OCR, multi-carrier support, export to PDF or PNG.',
     images: ["/icon.png"],
   },
 };
@@ -45,7 +45,7 @@ const features: { icon: LucideIcon; title: string; description: string }[] = [
     icon: Printer,
     title: "Thermal-print ready",
     description:
-      "Export cropped labels as 4×6″ PDF or PNG at 203 or 300 DPI — perfect for Zebra and similar thermal printers.",
+      'Export cropped labels as 4×6" PDF or PNG at 203 or 300 DPI — perfect for Zebra and similar thermal printers.',
   },
   {
     icon: FolderInput,
