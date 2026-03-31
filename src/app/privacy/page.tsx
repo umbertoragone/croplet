@@ -5,7 +5,7 @@ import { APP_STORE_URL } from "@/lib/app-store";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description:
-    "Croplet is designed to process shipping labels on your device. Learn what the app handles, what stays local, and when data may be shared.",
+    "Learn how privacy works across the Croplet iOS app and the Croplet web tool, including what stays local and when a URL import is proxied.",
 };
 
 export default function PrivacyPage() {
@@ -44,12 +44,13 @@ export default function PrivacyPage() {
           Privacy Policy
         </h1>
         <p className="mb-4" style={{ fontSize: "1.05rem", maxWidth: "64ch", color: "#56716a" }}>
-          Effective date: March 13, 2026.
+          Effective date: March 31, 2026.
         </p>
         <p style={{ color: "#56716a" }}>
-          Croplet is designed to process shipping labels on your device. This
-          policy explains what the app handles, what stays local, and when data
-          may be shared with Apple or with us.
+          This policy covers both the Croplet iOS app and the Croplet web tool.
+          It explains what is processed locally, when data may pass through
+          third-party services or Croplet infrastructure, and what that means
+          for your privacy.
         </p>
 
         <div
@@ -58,16 +59,16 @@ export default function PrivacyPage() {
         >
           {[
             {
-              title: "On-device processing",
-              body: "Imported PDF labels, image rendering, barcode detection, and OCR are processed locally on your device.",
+              title: "Croplet iOS app",
+              body: "In the iOS app, imported labels, previews, barcode detection, OCR, and exports are processed locally on your device.",
             },
             {
-              title: "Local settings",
-              body: "Your preferences, such as export format and label defaults, are stored locally on your device.",
+              title: "Croplet web tool",
+              body: "When you upload a local file in the web tool, PDF handling and edits run in your browser on your device.",
             },
             {
-              title: "Purchases",
-              body: "Croplet Pro purchases and entitlement checks are handled by Apple through the App Store and StoreKit.",
+              title: "URL imports",
+              body: "If you import a PDF by URL in the web tool, Croplet fetches that remote file through a server-side proxy so the browser can access it.",
             },
           ].map((card) => (
             <section
@@ -93,10 +94,11 @@ export default function PrivacyPage() {
           Information Croplet processes
         </h2>
         <ul className="pl-5" style={{ color: "#56716a" }}>
-          <li>PDF files and their contents when you import a shipping label into the app.</li>
-          <li>Recognized text and barcode data needed to detect and crop the label.</li>
-          <li>App settings you choose, such as export format, DPI, and label preferences.</li>
-          <li>Purchase and entitlement status returned by Apple if you buy or restore Croplet Pro.</li>
+          <li>The PDF files and contents you import into the Croplet iOS app or upload directly into the Croplet web tool.</li>
+          <li>Recognized text and barcode data needed to detect, crop, preview, and export labels.</li>
+          <li>Settings you choose, such as export format, DPI, and label preferences, which are stored locally on your device or in your browser.</li>
+          <li>The remote URL you submit for web-tool URL import, and the fetched file contents needed to retrieve that document for your browser.</li>
+          <li>Purchase and entitlement status returned by Apple if you buy or restore Croplet Pro in the iOS app.</li>
           <li>Information you choose to include if you contact support, report a bug, or request a feature by email.</li>
         </ul>
 
@@ -107,9 +109,10 @@ export default function PrivacyPage() {
           How information is used
         </h2>
         <ul className="pl-5" style={{ color: "#56716a" }}>
-          <li>To crop, optimize, preview, and export shipping labels inside the app.</li>
-          <li>To remember your preferences between sessions on your device.</li>
-          <li>To unlock and restore paid features through Apple&apos;s billing systems.</li>
+          <li>To crop, optimize, preview, and export shipping labels in the iOS app and web tool.</li>
+          <li>To remember your preferences between sessions on your device or in your browser.</li>
+          <li>To fetch a PDF from a remote source when you choose the web tool&apos;s URL import feature.</li>
+          <li>To unlock and restore paid features through Apple&apos;s billing systems in the iOS app.</li>
           <li>To respond to support requests, bug reports, or feature requests that you send by email.</li>
         </ul>
 
@@ -120,7 +123,9 @@ export default function PrivacyPage() {
           What Croplet does not do
         </h2>
         <ul className="pl-5" style={{ color: "#56716a" }}>
-          <li>Croplet does not send your imported shipping labels to a Croplet-operated server for processing.</li>
+          <li>The Croplet iOS app does not send your imported shipping labels to a Croplet-operated server for processing.</li>
+          <li>The Croplet web tool does not upload local-file imports to a Croplet-operated server for processing as part of normal in-browser editing.</li>
+          <li>The Croplet web tool URL-import feature is the exception: the remote file is proxied through a Croplet-operated server so the browser can receive it.</li>
           <li>Croplet does not require an account.</li>
           <li>Croplet does not show third-party advertising.</li>
         </ul>
@@ -131,12 +136,44 @@ export default function PrivacyPage() {
         >
           Third parties
         </h2>
-        <p style={{ color: "#56716a" }}>
-          Apple processes in-app purchases, subscription management, transaction
-          verification, and related App Store services under Apple&apos;s own terms
-          and privacy policies. If you use the email actions inside Croplet,
-          your mail provider will also process the email you send.
-        </p>
+        <ul className="pl-5" style={{ color: "#56716a" }}>
+          <li>
+            Apple processes in-app purchases, subscription management,
+            transaction verification, and related App Store services for the
+            Croplet iOS app under Apple&apos;s own policies:{" "}
+            <a
+              href="https://www.apple.com/legal/privacy/"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: "#1b6b63" }}
+            >
+              Apple Privacy Policy
+            </a>
+            .
+          </li>
+          <li>
+            Netlify hosts the Croplet web tool and may process standard hosting,
+            networking, and operational logs when you use the site:{" "}
+            <a
+              href="https://www.netlify.com/privacy/"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: "#1b6b63" }}
+            >
+              Netlify Privacy Statement
+            </a>
+            .
+          </li>
+          <li>
+            If you use URL import in the web tool, the remote file host you
+            specify will also receive a request for that file through Croplet&apos;s
+            server-side proxy.
+          </li>
+          <li>
+            If you use the email actions inside Croplet, your mail provider will
+            also process the email you send.
+          </li>
+        </ul>
 
         <h2
           className="font-bold mt-7 mb-3"
@@ -146,9 +183,13 @@ export default function PrivacyPage() {
         </h2>
         <p style={{ color: "#56716a" }}>
           Imported documents and exported files remain under your control on
-          your device and in locations you choose to save or share them. Support
-          emails are retained for as long as reasonably necessary to respond,
-          troubleshoot issues, and keep a record of product feedback.
+          your device and in locations you choose to save or share them. For
+          web-tool URL imports, the requested file passes through a Croplet
+          server only to fulfill that request and is not intentionally stored as
+          part of the feature&apos;s normal operation, although hosting and network
+          providers may process transient logs. Support emails are retained for
+          as long as reasonably necessary to respond, troubleshoot issues, and
+          keep a record of product feedback.
         </p>
 
         <h2
@@ -159,6 +200,7 @@ export default function PrivacyPage() {
         </h2>
         <ul className="pl-5" style={{ color: "#56716a" }}>
           <li>You can remove app data by deleting the app and its local documents from your device.</li>
+          <li>You can use local-file import instead of URL import in the web tool if you want your document handling to remain entirely in your browser.</li>
           <li>You can manage or cancel subscriptions through your Apple account settings.</li>
           <li>You can decide what information to include before sending an email from the app.</li>
         </ul>

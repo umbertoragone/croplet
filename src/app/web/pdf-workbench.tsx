@@ -92,6 +92,25 @@ type SliderWithDefaultNotchProps = React.ComponentProps<typeof Slider> & {
   onPassNotch?: () => void;
 };
 
+function getFileNameFromContentDisposition(headerValue: string | null) {
+  if (!headerValue) {
+    return null;
+  }
+
+  const encodedFileName = headerValue.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+
+  if (encodedFileName) {
+    try {
+      return decodeURIComponent(encodedFileName);
+    } catch {
+      return encodedFileName;
+    }
+  }
+
+  const plainFileName = headerValue.match(/filename="?([^";]+)"?/i)?.[1];
+  return plainFileName ?? null;
+}
+
 const OUTPUT_PAGE_WIDTH = 288;
 const OUTPUT_PAGE_HEIGHT = 432;
 const DEFAULT_OFFSET_MIN = -120;
@@ -1043,7 +1062,13 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
     setIsImportingUrl(true);
 
     try {
-      const response = await fetch(parsedUrl.toString());
+      const response = await fetch("/api/import-from-url", {
+        body: JSON.stringify({ url: parsedUrl.toString() }),
+        headers: {
+          "content-type": "application/json",
+        },
+        method: "POST",
+      });
 
       if (!response.ok) {
         throw new Error(messages.errors.fetchPdfUrl);
@@ -1060,6 +1085,9 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
       }
 
       const fileNameFromUrl =
+        getFileNameFromContentDisposition(
+          response.headers.get("content-disposition"),
+        ) ??
         parsedUrl.pathname.split("/").filter(Boolean).pop() ??
         "remote-label.pdf";
       const normalizedFileName = fileNameFromUrl.toLowerCase().endsWith(".pdf")
