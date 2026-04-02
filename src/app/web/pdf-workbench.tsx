@@ -197,8 +197,8 @@ const BASE_PRESETS: Record<Exclude<LabelType, "brt">, CropPreset> = {
     scale: 1.112,
   },
   inpostFamily: {
-    x: 90,
-    y: 38,
+    x: 84,
+    y: 33,
     width: 432,
     height: 288,
     rotate: 90,
