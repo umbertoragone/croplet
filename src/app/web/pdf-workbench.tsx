@@ -210,8 +210,8 @@ const BASE_PRESETS: Record<Exclude<LabelType, "brt">, CropPreset> = {
 };
 
 const BRT_PRESETS = {
-  fullPage: { x: 65, y: 853, width: 432, height: 288, rotate: 270, scale: 1.6 },
-  halfPage: { x: 44, y: 338, width: 288, height: 432, rotate: 0, scale: 1.08 },
+  fullPage: { x: -40, y: 480, width: 432, height: 288, rotate: 270, scale: 1.6 },
+  halfPage: { x: 31, y: 298, width: 288, height: 432, rotate: 0, scale: 1.08 },
 } satisfies Record<"fullPage" | "halfPage", CropPreset>;
 
 function initialPreset(
