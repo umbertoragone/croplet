@@ -2060,7 +2060,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                           updateRecipientNameFontSize(recipientNameFontSize - 1)
                         }
                         disabled={controlsDisabled || !showRecipientName}
-                        className="size-8 shrink-0 rounded-full px-0"
+                        className="size-8 shrink-0 rounded-full px-0 disabled:pointer-events-auto disabled:cursor-not-allowed disabled:hover:border-[#16302b20] disabled:hover:text-[#16302b]"
                         aria-label={messages.controls.decreaseRecipientNameSize}
                       >
                         <Minus size={14} />
@@ -2087,7 +2087,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                           updateRecipientNameFontSize(recipientNameFontSize + 1)
                         }
                         disabled={controlsDisabled || !showRecipientName}
-                        className="size-8 shrink-0 rounded-full px-0"
+                        className="size-8 shrink-0 rounded-full px-0 disabled:pointer-events-auto disabled:cursor-not-allowed disabled:hover:border-[#16302b20] disabled:hover:text-[#16302b]"
                         aria-label={messages.controls.increaseRecipientNameSize}
                       >
                         <Plus size={14} />
@@ -2187,7 +2187,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                 <Button
                   type="button"
                   variant="ghost"
-                  className="justify-center px-4"
+                  className="justify-center px-4 disabled:pointer-events-auto disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-[#1b6b63]"
                   disabled={controlsDisabled}
                   onClick={() => {
                     setOffsetX(0);
