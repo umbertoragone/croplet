@@ -634,6 +634,7 @@ type PdfWorkbenchProps = {
 
 export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const importUrlInputRef = useRef<HTMLInputElement | null>(null);
   const previewFrameRef = useRef<HTMLDivElement | null>(null);
   const dropZoneRef = useRef<HTMLDivElement | null>(null);
   const ocrWorkerRef = useRef<TesseractWorker | null>(null);
@@ -774,6 +775,10 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
 
   const previewCanvasWidth =
     previewFrameWidth > 4 ? previewFrameWidth - 4 : undefined;
+
+  useEffect(() => {
+    importUrlInputRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     setOffsetX(0);
@@ -1895,6 +1900,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                           className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#6a8680]"
                         />
                         <input
+                          ref={importUrlInputRef}
                           id="pdf-url"
                           type="url"
                           inputMode="url"
