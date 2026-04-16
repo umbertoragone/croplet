@@ -1,1 +1,2 @@
-https://web.croplet.app/*  https://croplet.app/web  301!
+https://web.croplet.app/  https://croplet.app/web  301!
+https://web.croplet.app/* https://croplet.app/web/:splat 301!
