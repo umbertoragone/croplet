@@ -37,7 +37,7 @@ export default function PhoneFrame({ src, alt, width, className, style }: PhoneF
           height: `${SC_H}%`,
           borderRadius: `${SC_RX}% / ${SC_RY}%`,
           overflow: "hidden",
-          zIndex: 1,
+          zIndex: 0,
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -52,7 +52,7 @@ export default function PhoneFrame({ src, alt, width, className, style }: PhoneF
         src="/iphone-bezel.png"
         alt=""
         fill
-        style={{ zIndex: 2, pointerEvents: "none" }}
+        style={{ zIndex: 1, pointerEvents: "none" }}
         sizes={`${width}px`}
       />
     </div>

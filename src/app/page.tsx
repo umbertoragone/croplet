@@ -133,7 +133,6 @@ export default function Home() {
               src="/screenshots/screen1.png"
               alt="Croplet home screen"
               width="min(42vw, 200px)"
-              style={{ filter: "drop-shadow(0 24px 40px rgba(8,43,43,0.18))" }}
             />
             <PhoneFrame
               src="/screenshots/screen3.png"
@@ -141,7 +140,6 @@ export default function Home() {
               width="min(42vw, 200px)"
               style={{
                 marginBottom: "min(8vw, 32px)",
-                filter: "drop-shadow(0 24px 40px rgba(8,43,43,0.18))",
               }}
             />
           </div>
