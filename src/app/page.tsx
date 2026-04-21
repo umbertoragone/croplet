@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { APP_STORE_URL } from "@/lib/app-store";
+import { APP_STORE_ID, APP_STORE_URL } from "@/lib/app-store";
 import PhoneFrame from "@/components/PhoneFrame";
 import Header from "@/components/Header";
 import WebLink from "@/components/web-link";
@@ -21,6 +21,9 @@ export const metadata: Metadata = {
   title: 'A4 to 4×6" Label Cropper',
   description:
     'Croplet is the iOS app that automatically crops A4 shipping label PDFs to 4×6", ready for thermal printing. Supports Poste Italiane, BRT, InPost, UPS, DHL, and more.',
+  itunes: {
+    appId: APP_STORE_ID,
+  },
   openGraph: {
     title: 'Croplet — A4 to 4×6" Label Cropper',
     description:
@@ -329,7 +332,7 @@ export default function Home() {
             alt=""
             width={20}
             height={20}
-            className="rounded-md opacity-60"
+            className="ios-app-icon-mask opacity-60"
           />
           <span>© {new Date().getFullYear()} Umberto Ragone</span>
         </div>

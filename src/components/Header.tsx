@@ -48,7 +48,7 @@ function BrandMark() {
         alt="Croplet icon"
         width={36}
         height={36}
-        className="rounded-xl"
+        className="ios-app-icon-mask"
       />
       <span className="font-semibold tracking-tight text-[#16302b] transition-colors group-hover:text-[#1b6b63]">
         Croplet
