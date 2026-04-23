@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { APP_STORE_ID, APP_STORE_URL } from "@/lib/app-store";
+import { APP_NAME, PRO_PLAN_NAME, joinTitleParts } from "@/lib/brand";
 import PhoneFrame from "@/components/PhoneFrame";
 import Header from "@/components/Header";
 import WebLink from "@/components/web-link";
@@ -16,16 +17,23 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+const HOME_PAGE_TITLE = joinTitleParts(
+  APP_NAME,
+  'A4 PDF to 4x6" Shipping Label Cropper',
+);
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://croplet.app"),
-  title: 'A4 to 4×6" Label Cropper',
+  title: {
+    absolute: HOME_PAGE_TITLE,
+  },
   description:
-    'Croplet is the iOS app that automatically crops A4 shipping label PDFs to 4×6", ready for thermal printing. Supports Poste Italiane, BRT, InPost, UPS, DHL, and more.',
+    `${APP_NAME} is the iOS app that automatically crops A4 shipping label PDFs to 4×6", ready for thermal printing. Supports Poste Italiane, BRT, InPost, UPS, DHL, and more.`,
   itunes: {
     appId: APP_STORE_ID,
   },
   openGraph: {
-    title: 'Croplet — A4 to 4×6" Label Cropper',
+    title: HOME_PAGE_TITLE,
     description:
       'Automatically crop A4 shipping label PDFs to 4×6" for thermal printing. On-device OCR, multi-carrier support, export to PDF or PNG.',
     images: ["/icon.png"],
@@ -131,12 +139,12 @@ export default function Home() {
           <div className="flex w-full max-w-[25rem] gap-3 sm:gap-4 justify-center items-end shrink-0">
             <PhoneFrame
               src="/screenshots/screen1.png"
-              alt="Croplet home screen"
+              alt={`${APP_NAME} home screen`}
               width="min(42vw, 200px)"
             />
             <PhoneFrame
               src="/screenshots/screen3.png"
-              alt="Croplet label preview"
+              alt={`${APP_NAME} label preview`}
               width="min(42vw, 200px)"
               style={{
                 marginBottom: "min(8vw, 32px)",
@@ -210,7 +218,7 @@ export default function Home() {
             className="text-center mb-10 max-w-md mx-auto"
             style={{ color: "#56716a" }}
           >
-            Free to download. Upgrade to Croplet Pro to unlock automatic
+            Free to download. Upgrade to {PRO_PLAN_NAME} to unlock automatic
             OCR-based label detection.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 max-w-2xl mx-auto">

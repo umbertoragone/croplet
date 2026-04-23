@@ -1,11 +1,12 @@
 import type { MetadataRoute } from "next";
+import { APP_NAME, WEB_APP_NAME } from "@/lib/brand";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Croplet Web",
-    short_name: "Croplet",
+    name: WEB_APP_NAME,
+    short_name: APP_NAME,
     description:
-      "Croplet Web converts A4 shipping labels into 4×6 thermal-printer labels in your browser.",
+      `${WEB_APP_NAME} converts A4 shipping labels into 4×6 thermal-printer labels in your browser.`,
     start_url: "/web",
     scope: "/web",
     display: "standalone",

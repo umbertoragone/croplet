@@ -1,3 +1,5 @@
+import { WEB_APP_NAME } from "@/lib/brand";
+
 export const WEB_LOCALES = ["en", "it"] as const;
 
 export type WebLocale = (typeof WEB_LOCALES)[number];
@@ -78,7 +80,7 @@ type WebMessages = {
 const messages: Record<WebLocale, WebMessages> = {
   en: {
     header: {
-      product: "Croplet Web",
+      product: WEB_APP_NAME,
       badge: "Alpha",
       title: 'A4 to 4×6" label cropper',
     },
@@ -152,7 +154,7 @@ const messages: Record<WebLocale, WebMessages> = {
   },
   it: {
     header: {
-      product: "Croplet Web",
+      product: WEB_APP_NAME,
       badge: "Alpha",
       title: 'Ritaglio etichette da A4 a 4×6"',
     },

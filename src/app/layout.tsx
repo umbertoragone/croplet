@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import { AppToaster } from "@/components/ui/sonner";
+import { APP_NAME, ROOT_TITLE_TEMPLATE } from "@/lib/brand";
 import "./globals.css";
 
 const geist = Geist({
@@ -10,10 +11,10 @@ const geist = Geist({
 
 export const metadata: Metadata = {
   title: {
-    default: "Croplet",
-    template: "%s — Croplet",
+    default: APP_NAME,
+    template: ROOT_TITLE_TEMPLATE,
   },
-  description: "Croplet shipping label tools for iPhone and the web.",
+  description: `${APP_NAME} shipping label tools for iPhone and the web.`,
   icons: {
     icon: [
       {

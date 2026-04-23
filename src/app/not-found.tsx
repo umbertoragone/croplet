@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { APP_NAME } from "@/lib/brand";
 
 export default function NotFound() {
   return (
@@ -26,7 +27,7 @@ export default function NotFound() {
             href="/"
             className="text-[0.7rem] font-semibold uppercase tracking-[0.35em] text-[#1b6b63] transition-opacity hover:opacity-70"
           >
-            Croplet
+            {APP_NAME}
           </Link>
         </div>
 
