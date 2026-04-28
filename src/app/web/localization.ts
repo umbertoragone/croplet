@@ -71,6 +71,7 @@ type WebMessages = {
       scale: string;
       rotation: string;
       resetAdjustments: string;
+      donate: string;
       privacy: string;
       viewOnGitHub: string;
     };
@@ -147,6 +148,7 @@ const messages: Record<WebLocale, WebMessages> = {
         scale: "Scale",
         rotation: "Rotation",
         resetAdjustments: "Reset adjustments",
+        donate: "Donate",
         privacy: "Privacy",
         viewOnGitHub: "View on GitHub",
       },
@@ -221,6 +223,7 @@ const messages: Record<WebLocale, WebMessages> = {
         scale: "Scala",
         rotation: "Rotazione",
         resetAdjustments: "Reimposta regolazioni",
+        donate: "Dona",
         privacy: "Privacy",
         viewOnGitHub: "Vedi su GitHub",
       },

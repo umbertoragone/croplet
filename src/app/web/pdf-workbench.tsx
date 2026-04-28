@@ -2218,6 +2218,12 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                 {messages.controls.privacy}
               </Link>
               <ExternalLink
+                href="https://buymeacoffee.com/ragone"
+                className="text-sm font-medium text-[#56716a] transition-colors hover:text-[#1b6b63]"
+              >
+                {messages.controls.donate}
+              </ExternalLink>
+              <ExternalLink
                 href="https://github.com/umbertoragone/croplet"
                 className="text-sm font-medium text-[#56716a] transition-colors hover:text-[#1b6b63]"
               >
