@@ -74,7 +74,7 @@ export default function PrivacyPage() {
             },
             {
               title: "URL imports",
-              body: `If you import a PDF by URL in the web tool, ${APP_NAME} fetches that remote file through a server-side proxy so the browser can access it.`,
+              body: `If you import a PDF by URL in the web tool, ${APP_NAME} fetches that remote file through a server-side proxy and streams it back to the browser. The file is not intentionally stored as part of the normal flow. This is useful when hosts like Vinted serve labels from S3-backed URLs that the browser cannot fetch directly because of cross-origin rules.`,
             },
           ].map((card) => (
             <section
@@ -193,9 +193,13 @@ export default function PrivacyPage() {
           web-tool URL imports, the requested file passes through a {APP_NAME}
           server only to fulfill that request and is not intentionally stored as
           part of the feature&apos;s normal operation, although hosting and network
-          providers may process transient logs. Support emails are retained for
-          as long as reasonably necessary to respond, troubleshoot issues, and
-          keep a record of product feedback.
+          providers may process transient logs. If you want full privacy, use a
+          local-file import instead: download the PDF from Vinted first, then
+          import it from Files or drag and drop. Other label platforms can have
+          the same browser-access limitation, so local import is the safest
+          option when you want everything to stay on your device. Support emails
+          are retained for as long as reasonably necessary to respond,
+          troubleshoot issues, and keep a record of product feedback.
         </p>
 
         <h2
@@ -206,7 +210,7 @@ export default function PrivacyPage() {
         </h2>
         <ul className="pl-5" style={{ color: "#56716a" }}>
           <li>You can remove app data by deleting the app and its local documents from your device.</li>
-          <li>You can use local-file import instead of URL import in the web tool if you want your document handling to remain entirely in your browser.</li>
+          <li>You can use local-file import instead of URL import in the web tool if you want your document handling to remain entirely in your browser. Download the PDF from Vinted first, then import it from Files or drag and drop.</li>
           <li>You can manage or cancel subscriptions through your Apple account settings.</li>
           <li>You can decide what information to include before sending an email from the app.</li>
         </ul>
