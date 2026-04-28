@@ -45,3 +45,5 @@ next-env.d.ts
 
 /docs
 /docs/*
+# Local Netlify folder
+.netlify
