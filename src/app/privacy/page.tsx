@@ -10,8 +10,7 @@ import {
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
-  description:
-    `Learn how privacy works across the ${IOS_APP_NAME} and the ${WEB_TOOL_NAME}, including what stays local and when a URL import is proxied.`,
+  description: `Learn how privacy works across the ${IOS_APP_NAME} and the ${WEB_TOOL_NAME}, including what stays local and when a URL import is proxied.`,
 };
 
 export default function PrivacyPage() {
@@ -45,23 +44,32 @@ export default function PrivacyPage() {
         </span>
         <h1
           className="font-bold mb-3"
-          style={{ fontSize: "clamp(2.2rem, 4vw, 3.4rem)", color: "#16302b", lineHeight: 1.15 }}
+          style={{
+            fontSize: "clamp(2.2rem, 4vw, 3.4rem)",
+            color: "#16302b",
+            lineHeight: 1.15,
+          }}
         >
           Privacy Policy
         </h1>
-        <p className="mb-4" style={{ fontSize: "1.05rem", maxWidth: "64ch", color: "#56716a" }}>
-          Effective date: March 31, 2026.
+        <p
+          className="mb-4"
+          style={{ fontSize: "1.05rem", maxWidth: "64ch", color: "#56716a" }}
+        >
+          Effective date: April 28, 2026.
         </p>
         <p style={{ color: "#56716a" }}>
-          This policy covers both the {IOS_APP_NAME} and the {WEB_TOOL_NAME}.
-          It explains what is processed locally, when data may pass through
+          This policy covers both the {IOS_APP_NAME} and the {WEB_TOOL_NAME}. It
+          explains what is processed locally, when data may pass through
           third-party services or {APP_NAME} infrastructure, and what that means
           for your privacy.
         </p>
 
         <div
           className="grid gap-3.5 my-7"
-          style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}
+          style={{
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          }}
         >
           {[
             {
@@ -88,7 +96,9 @@ export default function PrivacyPage() {
               <strong className="block mb-1.5 text-croplet-text text-[0.95rem]">
                 {card.title}
               </strong>
-              <p className="text-sm" style={{ color: "#56716a" }}>{card.body}</p>
+              <p className="text-sm" style={{ color: "#56716a" }}>
+                {card.body}
+              </p>
             </section>
           ))}
         </div>
@@ -100,13 +110,38 @@ export default function PrivacyPage() {
           Information {APP_NAME} processes
         </h2>
         <ul className="pl-5" style={{ color: "#56716a" }}>
-          <li>The PDF files and contents you import into the {IOS_APP_NAME} or upload directly into the {WEB_TOOL_NAME}.</li>
-          <li>Recognized text and barcode data needed to detect, crop, preview, and export labels.</li>
-          <li>Settings you choose, such as export format, DPI, and label preferences, which are stored locally on your device or in your browser.</li>
-          <li>The remote URL you submit for web-tool URL import, and the fetched file contents needed to retrieve that document for your browser.</li>
-          <li>Operational URL-import logs, including the endpoint name, event name, remote hostname, protocol, detected file extension, response content type, response byte size, and the reason for blocked or failed requests. For rate-limited requests, the log also includes the client IP address seen by the server.</li>
-          <li>Purchase and entitlement status returned by Apple if you buy or restore {PRO_PLAN_NAME} in the iOS app.</li>
-          <li>Information you choose to include if you contact support, report a bug, or request a feature by email.</li>
+          <li>
+            The PDF files and contents you import into the {IOS_APP_NAME} or
+            upload directly into the {WEB_TOOL_NAME}.
+          </li>
+          <li>
+            Recognized text and barcode data needed to detect, crop, preview,
+            and export labels.
+          </li>
+          <li>
+            Settings you choose, such as export format, DPI, and label
+            preferences, which are stored locally on your device or in your
+            browser.
+          </li>
+          <li>
+            The remote URL you submit for web-tool URL import, and the fetched
+            file contents needed to retrieve that document for your browser.
+          </li>
+          <li>
+            Operational URL-import logs, including the endpoint name, event
+            name, remote hostname, protocol, detected file extension, response
+            content type, response byte size, and the reason for blocked or
+            failed requests. For rate-limited requests, the log also includes
+            the client IP address seen by the server.
+          </li>
+          <li>
+            Purchase and entitlement status returned by Apple if you buy or
+            restore {PRO_PLAN_NAME} in the iOS app.
+          </li>
+          <li>
+            Information you choose to include if you contact support, report a
+            bug, or request a feature by email.
+          </li>
         </ul>
 
         <h2
@@ -116,11 +151,26 @@ export default function PrivacyPage() {
           How information is used
         </h2>
         <ul className="pl-5" style={{ color: "#56716a" }}>
-          <li>To crop, optimize, preview, and export shipping labels in the iOS app and web tool.</li>
-          <li>To remember your preferences between sessions on your device or in your browser.</li>
-          <li>To fetch a PDF from a remote source when you choose the web tool&apos;s URL import feature.</li>
-          <li>To unlock and restore paid features through Apple&apos;s billing systems in the iOS app.</li>
-          <li>To respond to support requests, bug reports, or feature requests that you send by email.</li>
+          <li>
+            To crop, optimize, preview, and export shipping labels in the iOS
+            app and web tool.
+          </li>
+          <li>
+            To remember your preferences between sessions on your device or in
+            your browser.
+          </li>
+          <li>
+            To fetch a PDF from a remote source when you choose the web
+            tool&apos;s URL import feature.
+          </li>
+          <li>
+            To unlock and restore paid features through Apple&apos;s billing
+            systems in the iOS app.
+          </li>
+          <li>
+            To respond to support requests, bug reports, or feature requests
+            that you send by email.
+          </li>
         </ul>
 
         <h2
@@ -130,9 +180,20 @@ export default function PrivacyPage() {
           What {APP_NAME} does not do
         </h2>
         <ul className="pl-5" style={{ color: "#56716a" }}>
-          <li>The {IOS_APP_NAME} does not send your imported shipping labels to a {APP_NAME}-operated server for processing.</li>
-          <li>The {WEB_TOOL_NAME} does not upload local-file imports to a {APP_NAME}-operated server for processing as part of normal in-browser editing.</li>
-          <li>The {WEB_TOOL_NAME} URL-import feature is the exception: the remote file is proxied through a {APP_NAME}-operated server so the browser can receive it.</li>
+          <li>
+            The {IOS_APP_NAME} does not send your imported shipping labels to a{" "}
+            {APP_NAME}-operated server for processing.
+          </li>
+          <li>
+            The {WEB_TOOL_NAME} does not upload local-file imports to a{" "}
+            {APP_NAME}-operated server for processing as part of normal
+            in-browser editing.
+          </li>
+          <li>
+            The {WEB_TOOL_NAME} URL-import feature is the exception: the remote
+            file is proxied through a {APP_NAME}-operated server so the browser
+            can receive it.
+          </li>
           <li>{APP_NAME} does not require an account.</li>
           <li>{APP_NAME} does not show third-party advertising.</li>
         </ul>
@@ -174,12 +235,12 @@ export default function PrivacyPage() {
           </li>
           <li>
             If you use URL import in the web tool, the remote file host you
-            specify will also receive a request for that file through {APP_NAME}&apos;s
-            server-side proxy.
+            specify will also receive a request for that file through {APP_NAME}
+            &apos;s server-side proxy.
           </li>
           <li>
-            If you use the email actions inside {APP_NAME}, your mail provider will
-            also process the email you send.
+            If you use the email actions inside {APP_NAME}, your mail provider
+            will also process the email you send.
           </li>
         </ul>
 
@@ -194,8 +255,8 @@ export default function PrivacyPage() {
           your device and in locations you choose to save or share them. For
           web-tool URL imports, the requested file passes through a {APP_NAME}
           server only to fulfill that request and is not intentionally stored as
-          part of the feature&apos;s normal operation. The full submitted URL, URL
-          query string, and PDF contents are not intentionally written to
+          part of the feature&apos;s normal operation. The full submitted URL,
+          URL query string, and PDF contents are not intentionally written to
           application logs. URL-import function logs are retained by Netlify for
           24 hours. If you want full privacy, use a local-file import instead:
           download the PDF from Vinted first, then import it from Files or drag
@@ -213,10 +274,24 @@ export default function PrivacyPage() {
           Your choices
         </h2>
         <ul className="pl-5" style={{ color: "#56716a" }}>
-          <li>You can remove app data by deleting the app and its local documents from your device.</li>
-          <li>You can use local-file import instead of URL import in the web tool if you want your document handling to remain entirely in your browser. Download the PDF from Vinted first, then import it from Files or drag and drop.</li>
-          <li>You can manage or cancel subscriptions through your Apple account settings.</li>
-          <li>You can decide what information to include before sending an email from the app.</li>
+          <li>
+            You can remove app data by deleting the app and its local documents
+            from your device.
+          </li>
+          <li>
+            You can use local-file import instead of URL import in the web tool
+            if you want your document handling to remain entirely in your
+            browser. Download the PDF from Vinted first, then import it from
+            Files or drag and drop.
+          </li>
+          <li>
+            You can manage or cancel subscriptions through your Apple account
+            settings.
+          </li>
+          <li>
+            You can decide what information to include before sending an email
+            from the app.
+          </li>
         </ul>
 
         <h2
@@ -245,9 +320,9 @@ export default function PrivacyPage() {
             color: "#56716a",
           }}
         >
-          This policy may be updated when {APP_NAME}&apos;s data practices change. The
-          effective date above will be updated when a new version of this policy
-          is published.
+          This policy may be updated when {APP_NAME}&apos;s data practices
+          change. The effective date above will be updated when a new version of
+          this policy is published.
         </footer>
       </main>
     </div>
