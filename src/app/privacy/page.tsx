@@ -85,7 +85,7 @@ export default function PrivacyPage() {
                 border: "1px solid rgba(22,48,43,0.1)",
               }}
             >
-              <strong className="block mb-1.5 text-[#16302b] text-[0.95rem]">
+              <strong className="block mb-1.5 text-croplet-text text-[0.95rem]">
                 {card.title}
               </strong>
               <p className="text-sm" style={{ color: "#56716a" }}>{card.body}</p>
