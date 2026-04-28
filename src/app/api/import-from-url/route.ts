@@ -52,11 +52,11 @@ function logImportEvent(
 }
 
 function getRemoteLogDetails(url: URL) {
-  const fileExtension = url.pathname.split(".").pop()?.toLowerCase() ?? null;
+  const lastPathSegment = url.pathname.split("/").pop() ?? "";
+  const extensionMatch = /\.([a-z0-9]{1,12})$/i.exec(lastPathSegment);
 
   return {
-    fileExtension:
-      fileExtension && fileExtension !== url.pathname ? fileExtension : null,
+    fileExtension: extensionMatch?.[1].toLowerCase() ?? null,
     hostname: url.hostname,
     protocol: url.protocol,
   };
