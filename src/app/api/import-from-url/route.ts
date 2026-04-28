@@ -37,6 +37,31 @@ type RemoteFetchResult =
 
 const rateLimitBuckets = new Map<string, RateLimitBucket>();
 
+function logImportEvent(
+  level: "info" | "warn",
+  event: string,
+  details: Record<string, string | number | boolean | null> = {},
+) {
+  console[level](
+    JSON.stringify({
+      details,
+      event,
+      route: "api/import-from-url",
+    }),
+  );
+}
+
+function getRemoteLogDetails(url: URL) {
+  const fileExtension = url.pathname.split(".").pop()?.toLowerCase() ?? null;
+
+  return {
+    fileExtension:
+      fileExtension && fileExtension !== url.pathname ? fileExtension : null,
+    hostname: url.hostname,
+    protocol: url.protocol,
+  };
+}
+
 function getAllowedOrigins(request: Request) {
   if (process.env.NODE_ENV === "production") {
     return PRODUCTION_ORIGINS;
@@ -316,6 +341,7 @@ async function readBoundedResponseBody(
 
 export async function OPTIONS(request: Request) {
   if (!hasAllowedRequestSource(request)) {
+    logImportEvent("warn", "preflight_forbidden_origin");
     return new Response(null, { status: 403 });
   }
 
@@ -336,10 +362,18 @@ export async function POST(request: Request) {
   let body: ImportRequestBody;
 
   if (!hasAllowedRequestSource(request)) {
+    logImportEvent("warn", "forbidden_origin", {
+      hasOrigin: Boolean(request.headers.get("origin")),
+      hasReferer: Boolean(request.headers.get("referer")),
+      secFetchSite: request.headers.get("sec-fetch-site"),
+    });
     return jsonError("forbidden_origin", 403);
   }
 
   if (isRateLimited(request)) {
+    logImportEvent("warn", "rate_limited", {
+      clientAddress: getClientAddress(request),
+    });
     return jsonError("rate_limited", 429);
   }
 
@@ -351,6 +385,9 @@ export async function POST(request: Request) {
     requestContentLength > MAX_REQUEST_BODY_BYTES ||
     requestContentLength < 0
   ) {
+    logImportEvent("warn", "request_body_too_large", {
+      contentLength: requestContentLength,
+    });
     return jsonError("request_body_too_large", 413);
   }
 
@@ -360,15 +397,18 @@ export async function POST(request: Request) {
     if (
       new TextEncoder().encode(requestText).byteLength > MAX_REQUEST_BODY_BYTES
     ) {
+      logImportEvent("warn", "request_body_too_large_after_read");
       return jsonError("request_body_too_large", 413);
     }
 
     body = JSON.parse(requestText) as ImportRequestBody;
   } catch {
+    logImportEvent("warn", "invalid_request_body");
     return jsonError("invalid_request_body", 400);
   }
 
   if (typeof body.url !== "string") {
+    logImportEvent("warn", "invalid_url_type");
     return jsonError("invalid_url", 400);
   }
 
@@ -377,8 +417,11 @@ export async function POST(request: Request) {
   try {
     parsedUrl = new URL(body.url);
   } catch {
+    logImportEvent("warn", "invalid_url_parse");
     return jsonError("invalid_url", 400);
   }
+
+  logImportEvent("info", "import_started", getRemoteLogDetails(parsedUrl));
 
   let upstreamResponse: Response;
   let finalUrl: URL;
@@ -396,6 +439,10 @@ export async function POST(request: Request) {
 
     if (!remoteResult.ok) {
       clearTimeout(timeout);
+      logImportEvent("warn", "remote_fetch_rejected", {
+        error: remoteResult.error,
+        ...getRemoteLogDetails(parsedUrl),
+      });
       return jsonError(remoteResult.error, 400);
     }
 
@@ -403,11 +450,16 @@ export async function POST(request: Request) {
     finalUrl = remoteResult.url;
   } catch {
     clearTimeout(timeout);
+    logImportEvent("warn", "remote_fetch_failed", getRemoteLogDetails(parsedUrl));
     return jsonError("fetch_failed", 502);
   }
 
   if (!upstreamResponse.ok || !upstreamResponse.body) {
     clearTimeout(timeout);
+    logImportEvent("warn", "remote_bad_status", {
+      status: upstreamResponse.status,
+      ...getRemoteLogDetails(finalUrl),
+    });
     return jsonError("fetch_failed", 502);
   }
 
@@ -420,11 +472,20 @@ export async function POST(request: Request) {
 
   if (!isAcceptableContentType(contentType, finalUrl)) {
     clearTimeout(timeout);
+    logImportEvent("warn", "invalid_content_type", {
+      contentType,
+      ...getRemoteLogDetails(finalUrl),
+    });
     return jsonError("invalid_content_type", 415);
   }
 
   if (contentLength && Number(contentLength) > MAX_REMOTE_BYTES) {
     clearTimeout(timeout);
+    logImportEvent("warn", "remote_file_too_large_by_header", {
+      contentLength: Number(contentLength),
+      maxBytes: MAX_REMOTE_BYTES,
+      ...getRemoteLogDetails(finalUrl),
+    });
     return jsonError("remote_file_too_large", 413);
   }
 
@@ -437,6 +498,10 @@ export async function POST(request: Request) {
     );
   } catch {
     clearTimeout(timeout);
+    logImportEvent("warn", "remote_file_too_large_while_reading", {
+      maxBytes: MAX_REMOTE_BYTES,
+      ...getRemoteLogDetails(finalUrl),
+    });
     return jsonError("remote_file_too_large", 413);
   }
 
@@ -453,6 +518,12 @@ export async function POST(request: Request) {
   responseHeaders.set("content-length", String(responseBody.byteLength));
 
   responseHeaders.set("cache-control", "no-store");
+
+  logImportEvent("info", "import_succeeded", {
+    bytes: responseBody.byteLength,
+    contentType,
+    ...getRemoteLogDetails(finalUrl),
+  });
 
   return new Response(responseBody, {
     headers: responseHeaders,

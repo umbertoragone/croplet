@@ -104,6 +104,7 @@ export default function PrivacyPage() {
           <li>Recognized text and barcode data needed to detect, crop, preview, and export labels.</li>
           <li>Settings you choose, such as export format, DPI, and label preferences, which are stored locally on your device or in your browser.</li>
           <li>The remote URL you submit for web-tool URL import, and the fetched file contents needed to retrieve that document for your browser.</li>
+          <li>Operational URL-import logs, including the endpoint name, event name, remote hostname, protocol, detected file extension, response content type, response byte size, and the reason for blocked or failed requests. For rate-limited requests, the log also includes the client IP address seen by the server.</li>
           <li>Purchase and entitlement status returned by Apple if you buy or restore {PRO_PLAN_NAME} in the iOS app.</li>
           <li>Information you choose to include if you contact support, report a bug, or request a feature by email.</li>
         </ul>
@@ -159,7 +160,8 @@ export default function PrivacyPage() {
           </li>
           <li>
             Netlify hosts the {WEB_TOOL_NAME} and may process standard hosting,
-            networking, and operational logs when you use the site:{" "}
+            networking, and operational logs when you use the site. Netlify
+            function logs are retained for 24 hours:{" "}
             <a
               href="https://www.netlify.com/privacy/"
               target="_blank"
@@ -192,14 +194,16 @@ export default function PrivacyPage() {
           your device and in locations you choose to save or share them. For
           web-tool URL imports, the requested file passes through a {APP_NAME}
           server only to fulfill that request and is not intentionally stored as
-          part of the feature&apos;s normal operation, although hosting and network
-          providers may process transient logs. If you want full privacy, use a
-          local-file import instead: download the PDF from Vinted first, then
-          import it from Files or drag and drop. Other label platforms can have
-          the same browser-access limitation, so local import is the safest
-          option when you want everything to stay on your device. Support emails
-          are retained for as long as reasonably necessary to respond,
-          troubleshoot issues, and keep a record of product feedback.
+          part of the feature&apos;s normal operation. The full submitted URL, URL
+          query string, and PDF contents are not intentionally written to
+          application logs. URL-import function logs are retained by Netlify for
+          24 hours. If you want full privacy, use a local-file import instead:
+          download the PDF from Vinted first, then import it from Files or drag
+          and drop. Other label platforms can have the same browser-access
+          limitation, so local import is the safest option when you want
+          everything to stay on your device. Support emails are retained for as
+          long as reasonably necessary to respond, troubleshoot issues, and keep
+          a record of product feedback.
         </p>
 
         <h2

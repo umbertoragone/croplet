@@ -63,6 +63,8 @@ After import, Croplet automatically:
 
 URL import is the only path that uses Croplet infrastructure. It runs through the Netlify server function behind `/api/import-from-url`, which fetches the remote PDF and streams it back to the browser. The file is not stored as part of the normal flow.
 
+For operational monitoring and abuse prevention, the URL-import function writes short structured logs to Netlify. These logs include the endpoint name, event name, remote hostname, protocol, detected file extension, response content type, response byte size, and the reason for blocked or failed requests. For rate-limited requests, the log also includes the client IP address seen by the function so repeated abusive traffic can be identified. Croplet does not intentionally log the full submitted URL, URL query string, or PDF contents. Netlify retains function logs for 24 hours.
+
 This server-side step is useful when the label host does not allow direct browser fetches. Vinted is a common example: its shipping labels are often hosted on S3-backed URLs that may be blocked by cross-origin rules when you try to load them directly in the browser. Other platforms can behave the same way, so the proxy keeps URL import usable when a direct client-side fetch would fail.
 
 If you want full privacy, do not use URL import. Download the PDF from Vinted first, then import it as a local file or via drag and drop. Those paths stay in your browser on your device.
