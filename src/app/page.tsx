@@ -29,6 +29,56 @@ export const metadata: Metadata = {
   },
   description:
     `${APP_NAME} is the iOS app that automatically crops A4 shipping label PDFs to 4×6", ready for thermal printing. Supports Poste Italiane, BRT, InPost, UPS, DHL, and more.`,
+  other: {
+    "apple-mobile-web-app-capable": "yes",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: APP_NAME,
+    startupImage: [
+      {
+        url: "/apple-startup-images/iPhone_16__iPhone_15_Pro__iPhone_15__iPhone_14_Pro_portrait.png?v=20260504-2",
+        media:
+          "screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)",
+      },
+      {
+        url: "/apple-startup-images/iPhone_16__iPhone_15_Pro__iPhone_15__iPhone_14_Pro_landscape.png?v=20260504-2",
+        media:
+          "screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)",
+      },
+      {
+        url: "/apple-startup-images/iPhone_17_Pro__iPhone_17__iPhone_16_Pro_portrait.png?v=20260504-2",
+        media:
+          "screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)",
+      },
+      {
+        url: "/apple-startup-images/iPhone_17_Pro__iPhone_17__iPhone_16_Pro_landscape.png?v=20260504-2",
+        media:
+          "screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)",
+      },
+      {
+        url: "/apple-startup-images/iPhone_16_Plus__iPhone_15_Pro_Max__iPhone_15_Plus__iPhone_14_Pro_Max_portrait.png?v=20260504-2",
+        media:
+          "screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)",
+      },
+      {
+        url: "/apple-startup-images/iPhone_16_Plus__iPhone_15_Pro_Max__iPhone_15_Plus__iPhone_14_Pro_Max_landscape.png?v=20260504-2",
+        media:
+          "screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)",
+      },
+      {
+        url: "/apple-startup-images/iPhone_17_Pro_Max__iPhone_16_Pro_Max_portrait.png?v=20260504-2",
+        media:
+          "screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)",
+      },
+      {
+        url: "/apple-startup-images/iPhone_17_Pro_Max__iPhone_16_Pro_Max_landscape.png?v=20260504-2",
+        media:
+          "screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)",
+      },
+    ],
+  },
   itunes: {
     appId: APP_STORE_ID,
   },

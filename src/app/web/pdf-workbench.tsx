@@ -1914,7 +1914,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                               void handleImportFromUrl();
                             }
                           }}
-                          className="h-11 w-full rounded-full border border-[#16302b18] bg-white px-8 pr-16 text-sm text-[#16302b] outline-none transition placeholder:text-[#6a8680] focus:border-[#1b6b63] focus:ring-2 focus:ring-[#1b6b63]/15"
+                          className="h-11 w-full rounded-full border border-[#16302b18] bg-white px-8 pr-16 text-base text-[#16302b] outline-none transition placeholder:text-[#6a8680] focus:border-[#1b6b63] focus:ring-2 focus:ring-[#1b6b63]/15 md:text-sm"
                         />
                         <Button
                           type="button"
