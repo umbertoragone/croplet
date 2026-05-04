@@ -1,8 +1,5 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { startTransition } from "react";
-
 import {
   Select,
   SelectContent,
@@ -17,32 +14,17 @@ type WebLanguageSwitcherProps = {
   locale: WebLocale;
   placeholder: string;
   options: Record<WebLocale, string>;
+  onLocaleChange: (locale: WebLocale) => void;
 };
 
 export default function WebLanguageSwitcher({
   locale,
   placeholder,
   options,
+  onLocaleChange,
 }: WebLanguageSwitcherProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-
   function handleLocaleChange(nextLocale: string) {
-    const nextSearchParams = new URLSearchParams(searchParams.toString());
-
-    if (nextLocale === "en") {
-      nextSearchParams.delete("lang");
-    } else {
-      nextSearchParams.set("lang", nextLocale);
-    }
-
-    const query = nextSearchParams.toString();
-    const nextUrl = query ? `${pathname}?${query}` : pathname;
-
-    startTransition(() => {
-      router.replace(nextUrl, { scroll: false });
-    });
+    onLocaleChange(nextLocale === "it" ? "it" : "en");
   }
 
   return (

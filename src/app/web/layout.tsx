@@ -1,15 +1,15 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { APP_NAME, WEB_APP_NAME, joinTitleParts } from "@/lib/brand";
 import PWARegistration from "./pwa-registration";
 
 const WEB_PAGE_TITLE = joinTitleParts(
   WEB_APP_NAME,
   'A4 PDF to 4x6" Shipping Label Cropper',
-  APP_NAME,
 );
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://croplet.app"),
+  applicationName: APP_NAME,
   alternates: {
     canonical: "/web",
   },
@@ -28,6 +28,10 @@ export const metadata: Metadata = {
       `A desktop-first and PWA-ready ${APP_NAME} experience for converting A4 labels into 4×6 outputs.`,
     images: ["/icon.png"],
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#14322f",
 };
 
 export default function WebLayout({

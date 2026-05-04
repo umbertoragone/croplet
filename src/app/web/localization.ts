@@ -4,7 +4,7 @@ export const WEB_LOCALES = ["en", "it"] as const;
 
 export type WebLocale = (typeof WEB_LOCALES)[number];
 
-type WebMessages = {
+export type WebMessages = {
   header: {
     product: string;
     badge: string;

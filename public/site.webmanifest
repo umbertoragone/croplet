@@ -1,12 +1,13 @@
 {
-  "name": "Your Application Name",
-  "short_name": "App",
-  "description": "Application description",
+  "id": "/web",
+  "name": "Croplet",
+  "short_name": "Croplet",
+  "description": "Croplet converts A4 shipping labels into 4x6 thermal-printer labels in your browser.",
   "start_url": "/web",
   "scope": "/web",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "background_color": "#f3efe6",
+  "theme_color": "#14322f",
   "orientation": "portrait-primary",
   "icons": [
     {
