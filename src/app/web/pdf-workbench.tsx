@@ -14,6 +14,7 @@ import {
   ArrowRight,
   Download,
   FileUp,
+  Info,
   Link as LinkIcon,
   LoaderCircle,
   Minus,
@@ -45,6 +46,11 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 import "react-pdf/dist/Page/AnnotationLayer.css";
@@ -119,6 +125,7 @@ const DEFAULT_OFFSET_MIN = -120;
 const DEFAULT_OFFSET_MAX = 120;
 const MANUAL_OFFSET_MIN = -240;
 const MANUAL_OFFSET_MAX = 240;
+const DEFAULT_USE_HALF_PAGE_BRT = true;
 const DEFAULT_SHOW_RECIPIENT_NAME = true;
 const DEFAULT_RECIPIENT_NAME_FONT_SIZE = 18;
 const DEFAULT_SCALE_OFFSET_MIN = -0.5;
@@ -127,6 +134,7 @@ const MANUAL_SCALE_OFFSET_MIN = -0.8;
 const MANUAL_SCALE_OFFSET_MAX = 2;
 const ROTATION_OFFSET_MIN = -270;
 const ROTATION_OFFSET_MAX = 270;
+const USE_HALF_PAGE_BRT_STORAGE_KEY = "croplet-web-use-half-page-brt";
 const SHOW_RECIPIENT_NAME_STORAGE_KEY = "croplet-web-show-recipient-name";
 const RECIPIENT_NAME_FONT_SIZE_STORAGE_KEY =
   "croplet-web-recipient-name-font-size";
@@ -253,6 +261,29 @@ function includesAnyKeyword(text: string, keywords: string[]) {
 
 function clampRecipientNameFontSize(value: number) {
   return Math.max(10, Math.min(72, value));
+}
+
+function readStoredUseHalfPageBrtPreference() {
+  try {
+    const storedValue = window.localStorage.getItem(
+      USE_HALF_PAGE_BRT_STORAGE_KEY,
+    );
+
+    if (storedValue === "true") {
+      return { hasStoredValue: true, value: true };
+    }
+
+    if (storedValue === "false") {
+      return { hasStoredValue: true, value: false };
+    }
+  } catch {
+    // Fall back to default when storage is unavailable.
+  }
+
+  return {
+    hasStoredValue: false,
+    value: DEFAULT_USE_HALF_PAGE_BRT,
+  };
 }
 
 function getStoredShowRecipientNamePreference() {
@@ -696,6 +727,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
   const fileSelectionVersionRef = useRef(0);
   const cropRequestVersionRef = useRef(0);
   const dragDepthRef = useRef(0);
+  const hasStoredUseHalfPageBrtPreferenceRef = useRef(false);
   const previewPanRef = useRef<{
     frameHeight: number;
     frameWidth: number;
@@ -708,14 +740,16 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
 
   const [file, setFile] = useState<File | null>(null);
   const [labelType, setLabelType] = useState<LabelType>("posteItaliane");
-  const [useHalfPageBRT, setUseHalfPageBRT] = useState(true);
+  const [useHalfPageBRT, setUseHalfPageBRT] = useState(
+    DEFAULT_USE_HALF_PAGE_BRT,
+  );
   const [showRecipientName, setShowRecipientName] = useState(
     DEFAULT_SHOW_RECIPIENT_NAME,
   );
   const [recipientNameFontSize, setRecipientNameFontSize] = useState(
     DEFAULT_RECIPIENT_NAME_FONT_SIZE,
   );
-  const [hasLoadedRecipientNamePreferences, setHasLoadedRecipientNamePreferences] =
+  const [hasLoadedControlPreferences, setHasLoadedControlPreferences] =
     useState(false);
   const [offsetX, setOffsetX] = useState(0);
   const [offsetY, setOffsetY] = useState(0);
@@ -923,13 +957,39 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
   }, []);
 
   useEffect(() => {
+    const storedUseHalfPageBrtPreference = readStoredUseHalfPageBrtPreference();
+
+    hasStoredUseHalfPageBrtPreferenceRef.current =
+      storedUseHalfPageBrtPreference.hasStoredValue;
+    setUseHalfPageBRT(storedUseHalfPageBrtPreference.value);
     setShowRecipientName(getStoredShowRecipientNamePreference());
     setRecipientNameFontSize(getStoredRecipientNameFontSizePreference());
-    setHasLoadedRecipientNamePreferences(true);
+    setHasLoadedControlPreferences(true);
   }, []);
 
   useEffect(() => {
-    if (!hasLoadedRecipientNamePreferences) {
+    if (!hasLoadedControlPreferences) {
+      return;
+    }
+
+    try {
+      if (useHalfPageBRT === DEFAULT_USE_HALF_PAGE_BRT) {
+        hasStoredUseHalfPageBrtPreferenceRef.current = false;
+        window.localStorage.removeItem(USE_HALF_PAGE_BRT_STORAGE_KEY);
+      } else {
+        hasStoredUseHalfPageBrtPreferenceRef.current = true;
+        window.localStorage.setItem(
+          USE_HALF_PAGE_BRT_STORAGE_KEY,
+          String(useHalfPageBRT),
+        );
+      }
+    } catch {
+      // Ignore persistence failures and keep current session state.
+    }
+  }, [hasLoadedControlPreferences, useHalfPageBRT]);
+
+  useEffect(() => {
+    if (!hasLoadedControlPreferences) {
       return;
     }
 
@@ -945,10 +1005,10 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
     } catch {
       // Ignore persistence failures and keep current session state.
     }
-  }, [hasLoadedRecipientNamePreferences, showRecipientName]);
+  }, [hasLoadedControlPreferences, showRecipientName]);
 
   useEffect(() => {
-    if (!hasLoadedRecipientNamePreferences) {
+    if (!hasLoadedControlPreferences) {
       return;
     }
 
@@ -964,7 +1024,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
     } catch {
       // Ignore persistence failures and keep current session state.
     }
-  }, [hasLoadedRecipientNamePreferences, recipientNameFontSize]);
+  }, [hasLoadedControlPreferences, recipientNameFontSize]);
 
   useEffect(() => {
     if (!file) {
@@ -1152,7 +1212,6 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
     const selectionVersion = fileSelectionVersionRef.current;
 
     setLabelType(DEFAULT_LABEL_TYPE);
-    setUseHalfPageBRT(true);
     setFile(nextFile);
 
     void detectImportedLabelType(nextFile).then((detectedLabel) => {
@@ -1162,13 +1221,15 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
 
       if (!detectedLabel) {
         setLabelType(DEFAULT_LABEL_TYPE);
-        setUseHalfPageBRT(true);
         return;
       }
 
       setLabelType(detectedLabel.labelType);
 
-      if (detectedLabel.labelType === "brt") {
+      if (
+        detectedLabel.labelType === "brt" &&
+        !hasStoredUseHalfPageBrtPreferenceRef.current
+      ) {
         setUseHalfPageBRT(detectedLabel.useHalfPageBRT ?? true);
       }
     });
@@ -2149,8 +2210,27 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
             {labelType === "brt" ? (
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-[1.2rem] border border-[#16302b10] bg-[#fcfdfc] px-4 py-3">
                 <div className="min-w-0 space-y-1">
-                  <div className="text-sm font-medium text-[#16302b]">
-                    {messages.controls.useHalfPage}
+                  <div className="flex items-center gap-1.5 text-sm font-medium text-[#16302b]">
+                    <span>{messages.controls.useHalfPage}</span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          className="inline-flex items-center justify-center p-0 text-[#1b6b63] transition hover:text-[#14574f] focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1b6b63]/20"
+                          aria-label={messages.controls.useHalfPageInfoLabel}
+                        >
+                          <Info size={12} strokeWidth={2.2} />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent
+                        side="top"
+                        align="center"
+                        sideOffset={10}
+                        className="w-64 font-normal sm:w-72"
+                      >
+                        {messages.controls.useHalfPageInfoTooltip}
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
                   <div className="text-sm text-[#56716a]">
                     {messages.controls.useHalfPageHint}
@@ -2170,8 +2250,27 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                 <div className="grid divide-y divide-[#16302b10]">
                   <div className="grid h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
                     <div className="min-w-0">
-                      <div className="text-sm font-medium leading-none text-[#16302b]">
-                        {messages.controls.showRecipientName}
+                      <div className="flex items-center gap-1.5 text-sm font-medium leading-none text-[#16302b]">
+                        <span>{messages.controls.showRecipientName}</span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className="inline-flex items-center justify-center p-0 text-[#1b6b63] transition hover:text-[#14574f] focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1b6b63]/20"
+                              aria-label={messages.controls.showRecipientNameInfoLabel}
+                            >
+                              <Info size={12} strokeWidth={2.2} />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent
+                            side="top"
+                            align="center"
+                            sideOffset={10}
+                            className="w-64 font-normal sm:w-72"
+                          >
+                            {messages.controls.showRecipientNameInfoTooltip}
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
                     </div>
                     <Switch

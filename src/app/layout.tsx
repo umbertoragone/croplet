@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import { AppToaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { APP_NAME, ROOT_TITLE_TEMPLATE } from "@/lib/brand";
 import "./globals.css";
 
@@ -54,8 +55,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geist.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
-        {children}
-        <AppToaster />
+        <TooltipProvider delayDuration={120}>
+          {children}
+          <AppToaster />
+        </TooltipProvider>
       </body>
     </html>
   );

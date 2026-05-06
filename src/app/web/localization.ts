@@ -61,7 +61,11 @@ export type WebMessages = {
       chooseLabelType: string;
       useHalfPage: string;
       useHalfPageHint: string;
+      useHalfPageInfoLabel: string;
+      useHalfPageInfoTooltip: string;
       showRecipientName: string;
+      showRecipientNameInfoLabel: string;
+      showRecipientNameInfoTooltip: string;
       recipientNameSize: string;
       decreaseRecipientNameSize: string;
       increaseRecipientNameSize: string;
@@ -138,7 +142,13 @@ const messages: Record<WebLocale, WebMessages> = {
         chooseLabelType: "Choose label type",
         useHalfPage: "Use half page",
         useHalfPageHint: "Switch between the two BRT crop presets.",
+        useHalfPageInfoLabel: "Why this helps",
+        useHalfPageInfoTooltip:
+          "Prints the barcode in the same direction as the label feed for a better quality.",
         showRecipientName: "Show recipient name",
+        showRecipientNameInfoLabel: "Why this helps",
+        showRecipientNameInfoTooltip:
+          "Prints the recipient name in large text so staff can find the parcel faster at delivery.",
         recipientNameSize: "Recipient name size",
         decreaseRecipientNameSize: "Decrease recipient name size",
         increaseRecipientNameSize: "Increase recipient name size",
@@ -198,7 +208,8 @@ const messages: Record<WebLocale, WebMessages> = {
         exportPdf: "Esporta PDF",
         print: "Stampa",
         dragTitle: "Trascina un PDF qui",
-        dragDescription: "Carica un PDF di etichetta di spedizione in formato A4",
+        dragDescription:
+          "Carica un PDF di etichetta di spedizione in formato A4",
         choosePdf: "Scegli PDF",
         importDivider: "Oppure importa da URL",
         pdfUrl: "URL PDF",
@@ -213,7 +224,13 @@ const messages: Record<WebLocale, WebMessages> = {
         chooseLabelType: "Seleziona tipo di etichetta",
         useHalfPage: "Usa mezza pagina",
         useHalfPageHint: "Passa tra i due preset di ritaglio BRT.",
+        useHalfPageInfoLabel: "Perché aiuta",
+        useHalfPageInfoTooltip:
+          "Stampa il codice a barre nella stessa direzione di uscita dell'etichetta per una migliore qualità.",
         showRecipientName: "Mostra nome destinatario",
+        showRecipientNameInfoLabel: "Perché aiuta",
+        showRecipientNameInfoTooltip:
+          "Stampa il nome del destinatario in grande per consentire agli addetti di trovare il pacco più velocemente alla consegna.",
         recipientNameSize: "Dimensione nome destinatario",
         decreaseRecipientNameSize: "Riduci dimensione nome destinatario",
         increaseRecipientNameSize: "Aumenta dimensione nome destinatario",
