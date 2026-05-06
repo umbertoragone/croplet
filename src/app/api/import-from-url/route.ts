@@ -3,6 +3,7 @@ import { isIP } from "node:net";
 
 const ALLOWED_PROTOCOLS = new Set(["http:", "https:"]);
 const PRODUCTION_ORIGINS = new Set(["https://croplet.app"]);
+const PRODUCTION_ALLOWED_HOST_SUFFIXES = ["--croplet.netlify.app"] as const;
 const DEVELOPMENT_ORIGINS = new Set([
   "http://127.0.0.1:3000",
   "http://localhost:3000",
@@ -62,7 +63,22 @@ function getRemoteLogDetails(url: URL) {
   };
 }
 
+function getCurrentDeploymentOrigin(request: Request) {
+  return new URL(request.url).origin;
+}
+
+function isAllowedProductionOrigin(origin: URL) {
+  return (
+    origin.protocol === "https:" &&
+    PRODUCTION_ALLOWED_HOST_SUFFIXES.some((suffix) =>
+      origin.hostname.endsWith(suffix),
+    )
+  );
+}
+
 function getAllowedOrigins(request: Request) {
+  const currentDeploymentOrigin = getCurrentDeploymentOrigin(request);
+
   if (process.env.NODE_ENV === "production") {
     return PRODUCTION_ORIGINS;
   }
@@ -70,7 +86,7 @@ function getAllowedOrigins(request: Request) {
   return new Set([
     ...PRODUCTION_ORIGINS,
     ...DEVELOPMENT_ORIGINS,
-    new URL(request.url).origin,
+    currentDeploymentOrigin,
   ]);
 }
 
@@ -83,7 +99,12 @@ function isAllowedOriginValue(
   }
 
   try {
-    return allowedOrigins.has(new URL(value).origin);
+    const origin = new URL(value);
+
+    return (
+      allowedOrigins.has(origin.origin) ||
+      (process.env.NODE_ENV === "production" && isAllowedProductionOrigin(origin))
+    );
   } catch {
     return false;
   }
@@ -107,6 +128,17 @@ function hasAllowedRequestSource(request: Request) {
     isAllowedOriginValue(origin, allowedOrigins) ||
     isAllowedOriginValue(referer, allowedOrigins)
   );
+}
+
+function getAccessControlAllowOrigin(request: Request) {
+  const allowedOrigins = getAllowedOrigins(request);
+  const origin = request.headers.get("origin");
+
+  if (origin && isAllowedOriginValue(origin, allowedOrigins)) {
+    return new URL(origin).origin;
+  }
+
+  return getCurrentDeploymentOrigin(request);
 }
 
 function getClientAddress(request: Request) {
@@ -349,7 +381,7 @@ export async function OPTIONS(request: Request) {
     headers: {
       "access-control-allow-headers": "content-type",
       "access-control-allow-methods": "POST, OPTIONS",
-      "access-control-allow-origin": "https://croplet.app",
+      "access-control-allow-origin": getAccessControlAllowOrigin(request),
       "access-control-max-age": "300",
       "cache-control": "no-store",
       vary: "Origin",
