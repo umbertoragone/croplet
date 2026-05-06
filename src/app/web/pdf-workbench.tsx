@@ -114,6 +114,7 @@ function getFileNameFromContentDisposition(headerValue: string | null) {
 
 const OUTPUT_PAGE_WIDTH = 288;
 const OUTPUT_PAGE_HEIGHT = 432;
+const AUTO_IMPORT_QUERY_PARAM = "import";
 const DEFAULT_OFFSET_MIN = -120;
 const DEFAULT_OFFSET_MAX = 120;
 const MANUAL_OFFSET_MIN = -240;
@@ -635,6 +636,7 @@ type PdfWorkbenchProps = {
 export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const importUrlInputRef = useRef<HTMLInputElement | null>(null);
+  const autoImportedUrlRef = useRef<string | null>(null);
   const previewFrameRef = useRef<HTMLDivElement | null>(null);
   const dropZoneRef = useRef<HTMLDivElement | null>(null);
   const ocrWorkerRef = useRef<TesseractWorker | null>(null);
@@ -778,6 +780,31 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
 
   useEffect(() => {
     importUrlInputRef.current?.focus();
+  }, []);
+
+  const runAutoImportFromUrl = useEffectEvent((rawUrl: string) => {
+    void importPdfFromUrl(rawUrl);
+  });
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const nextImportUrl = searchParams.get(AUTO_IMPORT_QUERY_PARAM)?.trim();
+
+    if (!nextImportUrl || autoImportedUrlRef.current === nextImportUrl) {
+      return;
+    }
+
+    autoImportedUrlRef.current = nextImportUrl;
+    setImportUrl(nextImportUrl);
+    searchParams.delete(AUTO_IMPORT_QUERY_PARAM);
+
+    const nextSearch = searchParams.toString();
+    const nextUrl = `${window.location.pathname}${
+      nextSearch ? `?${nextSearch}` : ""
+    }${window.location.hash}`;
+
+    window.history.replaceState(null, "", nextUrl);
+    runAutoImportFromUrl(nextImportUrl);
   }, []);
 
   useEffect(() => {
@@ -1049,7 +1076,11 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
   }
 
   async function handleImportFromUrl() {
-    const trimmedUrl = importUrl.trim();
+    await importPdfFromUrl(importUrl);
+  }
+
+  async function importPdfFromUrl(rawUrl: string) {
+    const trimmedUrl = rawUrl.trim();
 
     if (!trimmedUrl) {
       toast.error(messages.errors.enterPdfUrl);
