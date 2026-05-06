@@ -119,12 +119,17 @@ const DEFAULT_OFFSET_MIN = -120;
 const DEFAULT_OFFSET_MAX = 120;
 const MANUAL_OFFSET_MIN = -240;
 const MANUAL_OFFSET_MAX = 240;
+const DEFAULT_SHOW_RECIPIENT_NAME = true;
+const DEFAULT_RECIPIENT_NAME_FONT_SIZE = 18;
 const DEFAULT_SCALE_OFFSET_MIN = -0.5;
 const DEFAULT_SCALE_OFFSET_MAX = 0.5;
 const MANUAL_SCALE_OFFSET_MIN = -0.8;
 const MANUAL_SCALE_OFFSET_MAX = 2;
 const ROTATION_OFFSET_MIN = -270;
 const ROTATION_OFFSET_MAX = 270;
+const SHOW_RECIPIENT_NAME_STORAGE_KEY = "croplet-web-show-recipient-name";
+const RECIPIENT_NAME_FONT_SIZE_STORAGE_KEY =
+  "croplet-web-recipient-name-font-size";
 const INPOST_LOGO_REGION = {
   x: 0.62,
   y: 0.58,
@@ -244,6 +249,50 @@ function normalizeDetectedText(value: string) {
 
 function includesAnyKeyword(text: string, keywords: string[]) {
   return keywords.some((keyword) => text.includes(keyword));
+}
+
+function clampRecipientNameFontSize(value: number) {
+  return Math.max(10, Math.min(72, value));
+}
+
+function getStoredShowRecipientNamePreference() {
+  try {
+    const storedValue = window.localStorage.getItem(
+      SHOW_RECIPIENT_NAME_STORAGE_KEY,
+    );
+
+    if (storedValue === "true") {
+      return true;
+    }
+
+    if (storedValue === "false") {
+      return false;
+    }
+  } catch {
+    // Fall back to default when storage is unavailable.
+  }
+
+  return DEFAULT_SHOW_RECIPIENT_NAME;
+}
+
+function getStoredRecipientNameFontSizePreference() {
+  try {
+    const storedValue = window.localStorage.getItem(
+      RECIPIENT_NAME_FONT_SIZE_STORAGE_KEY,
+    );
+
+    if (storedValue) {
+      const parsedValue = Number(storedValue);
+
+      if (Number.isFinite(parsedValue)) {
+        return clampRecipientNameFontSize(parsedValue);
+      }
+    }
+  } catch {
+    // Fall back to default when storage is unavailable.
+  }
+
+  return DEFAULT_RECIPIENT_NAME_FONT_SIZE;
 }
 
 function isBrtLabel(text: string) {
@@ -660,8 +709,14 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
   const [file, setFile] = useState<File | null>(null);
   const [labelType, setLabelType] = useState<LabelType>("posteItaliane");
   const [useHalfPageBRT, setUseHalfPageBRT] = useState(true);
-  const [showRecipientName, setShowRecipientName] = useState(true);
-  const [recipientNameFontSize, setRecipientNameFontSize] = useState(18);
+  const [showRecipientName, setShowRecipientName] = useState(
+    DEFAULT_SHOW_RECIPIENT_NAME,
+  );
+  const [recipientNameFontSize, setRecipientNameFontSize] = useState(
+    DEFAULT_RECIPIENT_NAME_FONT_SIZE,
+  );
+  const [hasLoadedRecipientNamePreferences, setHasLoadedRecipientNamePreferences] =
+    useState(false);
   const [offsetX, setOffsetX] = useState(0);
   const [offsetY, setOffsetY] = useState(0);
   const [scaleOffset, setScaleOffset] = useState(0);
@@ -866,6 +921,50 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    setShowRecipientName(getStoredShowRecipientNamePreference());
+    setRecipientNameFontSize(getStoredRecipientNameFontSizePreference());
+    setHasLoadedRecipientNamePreferences(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedRecipientNamePreferences) {
+      return;
+    }
+
+    try {
+      if (showRecipientName === DEFAULT_SHOW_RECIPIENT_NAME) {
+        window.localStorage.removeItem(SHOW_RECIPIENT_NAME_STORAGE_KEY);
+      } else {
+        window.localStorage.setItem(
+          SHOW_RECIPIENT_NAME_STORAGE_KEY,
+          String(showRecipientName),
+        );
+      }
+    } catch {
+      // Ignore persistence failures and keep current session state.
+    }
+  }, [hasLoadedRecipientNamePreferences, showRecipientName]);
+
+  useEffect(() => {
+    if (!hasLoadedRecipientNamePreferences) {
+      return;
+    }
+
+    try {
+      if (recipientNameFontSize === DEFAULT_RECIPIENT_NAME_FONT_SIZE) {
+        window.localStorage.removeItem(RECIPIENT_NAME_FONT_SIZE_STORAGE_KEY);
+      } else {
+        window.localStorage.setItem(
+          RECIPIENT_NAME_FONT_SIZE_STORAGE_KEY,
+          String(recipientNameFontSize),
+        );
+      }
+    } catch {
+      // Ignore persistence failures and keep current session state.
+    }
+  }, [hasLoadedRecipientNamePreferences, recipientNameFontSize]);
 
   useEffect(() => {
     if (!file) {
@@ -1156,7 +1255,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
   }
 
   function updateRecipientNameFontSize(nextValue: number) {
-    setRecipientNameFontSize(Math.max(10, Math.min(72, nextValue)));
+    setRecipientNameFontSize(clampRecipientNameFontSize(nextValue));
   }
 
   function triggerSelectionHaptic() {
