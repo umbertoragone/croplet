@@ -100,6 +100,17 @@ type SliderWithDefaultNotchProps = React.ComponentProps<typeof Slider> & {
   onPassNotch?: () => void;
 };
 
+type PositionedTextLine = {
+  text: string;
+  x: number;
+  y: number;
+};
+
+type PositionedTextItem = {
+  str: string;
+  transform: number[];
+};
+
 function getFileNameFromContentDisposition(headerValue: string | null) {
   if (!headerValue) {
     return null;
@@ -128,7 +139,10 @@ const MANUAL_OFFSET_MIN = -240;
 const MANUAL_OFFSET_MAX = 240;
 const DEFAULT_USE_HALF_PAGE_BRT = true;
 const DEFAULT_SHOW_RECIPIENT_NAME = true;
+const DEFAULT_SHOW_INPOST_FAMILY_RECIPIENT_NAME = false;
+const DEFAULT_SHOW_INPOST_ITALY_RECIPIENT_NAME = false;
 const DEFAULT_RECIPIENT_NAME_FONT_SIZE = 18;
+const DEFAULT_HIDE_POSTE_ITALIANE_SENDER_ADDRESS = false;
 const DEFAULT_HIDE_INPOST_ITALY_SENDER_ADDRESS = false;
 const DEFAULT_SCALE_OFFSET_MIN = -0.5;
 const DEFAULT_SCALE_OFFSET_MAX = 0.5;
@@ -138,8 +152,14 @@ const ROTATION_OFFSET_MIN = -270;
 const ROTATION_OFFSET_MAX = 270;
 const USE_HALF_PAGE_BRT_STORAGE_KEY = "croplet-web-use-half-page-brt";
 const SHOW_RECIPIENT_NAME_STORAGE_KEY = "croplet-web-show-recipient-name";
+const SHOW_INPOST_FAMILY_RECIPIENT_NAME_STORAGE_KEY =
+  "croplet-web-show-inpost-family-recipient-name";
+const SHOW_INPOST_ITALY_RECIPIENT_NAME_STORAGE_KEY =
+  "croplet-web-show-inpost-italy-recipient-name";
 const RECIPIENT_NAME_FONT_SIZE_STORAGE_KEY =
   "croplet-web-recipient-name-font-size";
+const HIDE_POSTE_ITALIANE_SENDER_ADDRESS_STORAGE_KEY =
+  "croplet-web-hide-poste-italiane-sender-address";
 const HIDE_INPOST_ITALY_SENDER_ADDRESS_STORAGE_KEY =
   "croplet-web-hide-inpost-italy-sender-address";
 const INPOST_LOGO_REGION = {
@@ -148,11 +168,29 @@ const INPOST_LOGO_REGION = {
   width: 0.33,
   height: 0.24,
 } as const;
+const INPOST_FAMILY_RECIPIENT_REGION = {
+  x: 0.02,
+  y: 0.34,
+  width: 0.48,
+  height: 0.24,
+} as const;
 const INPOST_ITALY_SENDER_ADDRESS_MASK = {
-  x: 0.39,
-  y: 0.305,
-  width: 0.38,
-  height: 0.078,
+  x: 0.42,
+  y: 0.32,
+  width: 0.5,
+  height: 0.08,
+} as const;
+const INPOST_ITALY_RECIPIENT_REGION = {
+  x: 0.36,
+  y: 0.37,
+  width: 0.48,
+  height: 0.13,
+} as const;
+const POSTE_ITALIANE_SENDER_ADDRESS_MASK = {
+  x: 157,
+  y: 114,
+  width: 18,
+  height: 170,
 } as const;
 const POSTE_ITALIANE_RECIPIENT_REGION = {
   x: 0.27,
@@ -390,6 +428,66 @@ function getStoredShowRecipientNamePreference() {
   return DEFAULT_SHOW_RECIPIENT_NAME;
 }
 
+function getStoredShowInpostFamilyRecipientNamePreference() {
+  try {
+    const storedValue = window.localStorage.getItem(
+      SHOW_INPOST_FAMILY_RECIPIENT_NAME_STORAGE_KEY,
+    );
+
+    if (storedValue === "true") {
+      return true;
+    }
+
+    if (storedValue === "false") {
+      return false;
+    }
+  } catch {
+    // Fall back to default when storage is unavailable.
+  }
+
+  return DEFAULT_SHOW_INPOST_FAMILY_RECIPIENT_NAME;
+}
+
+function getStoredShowInpostItalyRecipientNamePreference() {
+  try {
+    const storedValue = window.localStorage.getItem(
+      SHOW_INPOST_ITALY_RECIPIENT_NAME_STORAGE_KEY,
+    );
+
+    if (storedValue === "true") {
+      return true;
+    }
+
+    if (storedValue === "false") {
+      return false;
+    }
+  } catch {
+    // Fall back to default when storage is unavailable.
+  }
+
+  return DEFAULT_SHOW_INPOST_ITALY_RECIPIENT_NAME;
+}
+
+function getStoredHidePosteItalianeSenderAddressPreference() {
+  try {
+    const storedValue = window.localStorage.getItem(
+      HIDE_POSTE_ITALIANE_SENDER_ADDRESS_STORAGE_KEY,
+    );
+
+    if (storedValue === "true") {
+      return true;
+    }
+
+    if (storedValue === "false") {
+      return false;
+    }
+  } catch {
+    // Fall back to default when storage is unavailable.
+  }
+
+  return DEFAULT_HIDE_POSTE_ITALIANE_SENDER_ADDRESS;
+}
+
 function getStoredHideInpostItalySenderAddressPreference() {
   try {
     const storedValue = window.localStorage.getItem(
@@ -614,7 +712,10 @@ function looksLikePersonalName(candidate: string) {
     [...word].every((character) => /[\p{L}'-]/u.test(character)),
   );
 
-  return letterOnlyWords.length >= 2;
+  return (
+    letterOnlyWords.length >= 2 &&
+    letterOnlyWords.every((word) => word.length >= 2)
+  );
 }
 
 function isPreferredPosteItalianeRecipient(candidate: string) {
@@ -636,6 +737,197 @@ function isPreferredPosteItalianeRecipient(candidate: string) {
   }
 
   return true;
+}
+
+function isInpostFamilyRecipientStopLine(normalizedLine: string) {
+  const compactLine = normalizedLine.replace(/\s+/g, "");
+
+  return (
+    normalizedLine.includes("sender") ||
+    normalizedLine.includes("receiver") ||
+    normalizedLine.includes("locker") ||
+    normalizedLine.includes("shipment") ||
+    normalizedLine.includes("weight") ||
+    normalizedLine.includes("volume") ||
+    normalizedLine.includes("parcel") ||
+    normalizedLine.includes("customer reference") ||
+    normalizedLine.includes("order reference") ||
+    normalizedLine.includes("inpost") ||
+    normalizedLine.includes("24 7") ||
+    normalizedLine.includes("24r") ||
+    /^\d/.test(compactLine)
+  );
+}
+
+function extractInpostFamilyRecipientFromTextLines(lines: string[]) {
+  const receiverIndex = lines.findIndex((line) =>
+    normalizeDetectedText(line).includes("receiver"),
+  );
+
+  if (receiverIndex < 0) {
+    for (const line of lines) {
+      const normalizedLine = normalizeDetectedText(line);
+
+      if (isInpostFamilyRecipientStopLine(normalizedLine)) {
+        break;
+      }
+
+      const candidate = sanitizedNameCandidate(line);
+
+      if (isPreferredPosteItalianeRecipient(candidate)) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  const receiverLine = lines[receiverIndex] ?? "";
+  const inlineCandidate = sanitizedNameCandidate(
+    receiverLine.replace(/^.*receiver\s*:?\s*/i, ""),
+  );
+
+  if (isPreferredPosteItalianeRecipient(inlineCandidate)) {
+    return inlineCandidate;
+  }
+
+  const upperBound = Math.min(lines.length, receiverIndex + 6);
+
+  for (const line of lines.slice(receiverIndex + 1, upperBound)) {
+    const normalizedLine = normalizeDetectedText(line);
+
+    if (isInpostFamilyRecipientStopLine(normalizedLine)) {
+      break;
+    }
+
+    const candidate = sanitizedNameCandidate(line);
+
+    if (isPreferredPosteItalianeRecipient(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function extractInpostItalyRecipientFromTextLines(lines: string[]) {
+  const destinationIndex = lines.findIndex((line) =>
+    normalizePosteItalianeText(line).includes("destinatario"),
+  );
+
+  if (destinationIndex < 0) {
+    return null;
+  }
+
+  const destinationLine = lines[destinationIndex] ?? "";
+  const inlineCandidate = sanitizedNameCandidate(
+    destinationLine.replace(/^.*destinatario\s*:?\s*/i, ""),
+  );
+
+  if (isPreferredPosteItalianeRecipient(inlineCandidate)) {
+    return inlineCandidate;
+  }
+
+  const upperBound = Math.min(lines.length, destinationIndex + 5);
+
+  for (const line of lines.slice(destinationIndex + 1, upperBound)) {
+    const normalizedLine = normalizePosteItalianeText(line);
+
+    if (
+      normalizedLine.includes("mittente") ||
+      normalizedLine.includes("destinatario") ||
+      normalizedLine.includes("via ") ||
+      normalizedLine.includes("presso") ||
+      normalizedLine.includes("dimensioni") ||
+      /^[a-z]{2,}\d/i.test(normalizedLine.replace(/\s+/g, ""))
+    ) {
+      break;
+    }
+
+    const candidate = sanitizedNameCandidate(line);
+
+    if (isPreferredPosteItalianeRecipient(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function isInpostItalyRecipientStopLine(normalizedLine: string) {
+  return (
+    normalizedLine.includes("mittente") ||
+    normalizedLine.includes("destinatario") ||
+    normalizedLine.includes("via ") ||
+    normalizedLine.includes("presso") ||
+    normalizedLine.includes("dimensioni") ||
+    /^[a-z]{2,}\d/i.test(normalizedLine.replace(/\s+/g, ""))
+  );
+}
+
+function extractInpostItalyRecipientFromPositionedTextLines(
+  lines: PositionedTextLine[],
+) {
+  const destinationLine = lines.find((line) =>
+    normalizePosteItalianeText(line.text).includes("destinatario"),
+  );
+
+  if (!destinationLine) {
+    return null;
+  }
+
+  const inlineCandidate = sanitizedNameCandidate(
+    destinationLine.text.replace(/^.*destinatario\s*:?\s*/i, ""),
+  );
+
+  if (isPreferredPosteItalianeRecipient(inlineCandidate)) {
+    return inlineCandidate;
+  }
+
+  const nearbyLines = lines.filter((line) => {
+    const normalizedLine = normalizePosteItalianeText(line.text);
+
+    return (
+      line !== destinationLine &&
+      !normalizedLine.includes("mittente") &&
+      !normalizedLine.includes("destinatario") &&
+      line.x >= destinationLine.x - 24 &&
+      line.x <= destinationLine.x + 240 &&
+      Math.abs(line.y - destinationLine.y) <= 140
+    );
+  });
+  const nearestStopLine = nearbyLines
+    .filter((line) =>
+      isInpostItalyRecipientStopLine(normalizePosteItalianeText(line.text)),
+    )
+    .map((line) => ({
+      direction: Math.sign(line.y - destinationLine.y),
+      distance: Math.abs(line.y - destinationLine.y),
+    }))
+    .filter((line) => line.direction !== 0 && line.distance > 1)
+    .sort((first, second) => first.distance - second.distance)[0];
+
+  if (!nearestStopLine) {
+    return null;
+  }
+
+  return (
+    nearbyLines
+      .map((line) => ({
+        candidate: sanitizedNameCandidate(line.text),
+        direction: Math.sign(line.y - destinationLine.y),
+        distance: Math.abs(line.y - destinationLine.y),
+      }))
+      .filter(
+        (line) =>
+          line.direction === nearestStopLine.direction &&
+          line.distance > 1 &&
+          line.distance < nearestStopLine.distance &&
+          isPreferredPosteItalianeRecipient(line.candidate),
+      )
+      .sort((first, second) => first.distance - second.distance)[0]
+      ?.candidate ?? null
+  );
 }
 
 function extractPosteItalianeRecipientFromTextLines(lines: string[]) {
@@ -722,6 +1014,18 @@ function recipientNameLayout(): RecipientNameLayout {
   };
 }
 
+function inpostItalyRecipientNameLayout(): RecipientNameLayout {
+  const margin = OUTPUT_PAGE_WIDTH * 0.075;
+
+  return {
+    x: margin,
+    y: OUTPUT_PAGE_HEIGHT * 0.045,
+    width: OUTPUT_PAGE_WIDTH - margin * 2,
+    height: OUTPUT_PAGE_HEIGHT * 0.09,
+    initialFontSize: 22,
+  };
+}
+
 function fittedRecipientFontSize(
   recipientName: string,
   maxWidth: number,
@@ -748,6 +1052,317 @@ function extractTextLines(text: string) {
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+function isPositionedTextItem(item: unknown): item is PositionedTextItem {
+  return (
+    typeof item === "object" &&
+    item !== null &&
+    "str" in item &&
+    "transform" in item &&
+    typeof item.str === "string" &&
+    Array.isArray(item.transform) &&
+    typeof item.transform[4] === "number" &&
+    typeof item.transform[5] === "number"
+  );
+}
+
+function positionedTextLinesFromItems(items: unknown[]) {
+  const positionedItems = items
+    .filter(isPositionedTextItem)
+    .map((item) => ({
+      text: item.str.trim(),
+      x: item.transform[4] ?? 0,
+      y: item.transform[5] ?? 0,
+    }))
+    .filter((item) => item.text);
+  const lineGroups: Array<{
+    items: Array<{ text: string; x: number }>;
+    x: number;
+    y: number;
+  }> = [];
+
+  for (const item of positionedItems) {
+    const lineGroup = lineGroups.find(
+      (candidate) => Math.abs(candidate.y - item.y) <= 3,
+    );
+
+    if (lineGroup) {
+      lineGroup.items.push({ text: item.text, x: item.x });
+      lineGroup.x = Math.min(lineGroup.x, item.x);
+      continue;
+    }
+
+    lineGroups.push({
+      items: [{ text: item.text, x: item.x }],
+      x: item.x,
+      y: item.y,
+    });
+  }
+
+  return lineGroups.map((lineGroup) => ({
+    text: [...lineGroup.items]
+      .sort((first, second) => first.x - second.x)
+      .map((item) => item.text)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim(),
+    x: lineGroup.x,
+    y: lineGroup.y,
+  }));
+}
+
+function outputPlacementForPreset(
+  pageWidth: number,
+  pageHeight: number,
+  sourcePageRotate: number,
+  preset: CropPreset,
+  labelType: LabelType,
+) {
+  const pageRotate = (sourcePageRotate + preset.rotate) % 360;
+  const shouldUseCenteredFullPage = usesCenteredFullPage(labelType);
+  const focusCenter = shouldUseCenteredFullPage
+    ? {
+        x: pageWidth / 2,
+        y: pageHeight / 2,
+      }
+    : {
+        x: preset.x + preset.width / 2,
+        y: preset.y + preset.height / 2,
+      };
+  const embeddedRegion = shouldUseCenteredFullPage
+    ? {
+        left: 0,
+        bottom: 0,
+        right: pageWidth,
+        top: pageHeight,
+      }
+    : (() => {
+        const sourceScale = Math.max(preset.scale, 0.1);
+        const sourceWidth = preset.width / sourceScale;
+        const sourceHeight = preset.height / sourceScale;
+        const unclampedLeft = focusCenter.x - sourceWidth / 2;
+        const unclampedBottom = focusCenter.y - sourceHeight / 2;
+
+        return {
+          left: clampValue(unclampedLeft, 0, pageWidth),
+          bottom: clampValue(unclampedBottom, 0, pageHeight),
+          right: clampValue(unclampedLeft + sourceWidth, 0, pageWidth),
+          top: clampValue(unclampedBottom + sourceHeight, 0, pageHeight),
+        };
+      })();
+  const focusWidth = embeddedRegion.right - embeddedRegion.left;
+  const focusHeight = embeddedRegion.top - embeddedRegion.bottom;
+  const embeddedFocusCenter = shouldUseCenteredFullPage
+    ? focusCenter
+    : {
+        x: focusWidth / 2,
+        y: focusHeight / 2,
+      };
+  const rotatedFocusWidth =
+    pageRotate === 90 || pageRotate === 270 ? focusHeight : focusWidth;
+  const rotatedFocusHeight =
+    pageRotate === 90 || pageRotate === 270 ? focusWidth : focusHeight;
+  const fitScale =
+    Math.min(
+      OUTPUT_PAGE_WIDTH / rotatedFocusWidth,
+      OUTPUT_PAGE_HEIGHT / rotatedFocusHeight,
+    ) * (shouldUseCenteredFullPage ? preset.scale : 1);
+  const targetCenter = {
+    x: OUTPUT_PAGE_WIDTH / 2,
+    y: OUTPUT_PAGE_HEIGHT / 2,
+  };
+  const positionedPage = (() => {
+    switch (pageRotate) {
+      case 90:
+        return {
+          x: targetCenter.x + embeddedFocusCenter.y * fitScale,
+          y: targetCenter.y - embeddedFocusCenter.x * fitScale,
+        };
+      case 180:
+        return {
+          x: targetCenter.x + embeddedFocusCenter.x * fitScale,
+          y: targetCenter.y + embeddedFocusCenter.y * fitScale,
+        };
+      case 270:
+        return {
+          x: targetCenter.x - embeddedFocusCenter.y * fitScale,
+          y: targetCenter.y + embeddedFocusCenter.x * fitScale,
+        };
+      default:
+        return {
+          x: targetCenter.x - embeddedFocusCenter.x * fitScale,
+          y: targetCenter.y - embeddedFocusCenter.y * fitScale,
+        };
+    }
+  })();
+
+  return {
+    embeddedRegion,
+    fitScale,
+    pageRotate,
+    positionedPage,
+  };
+}
+
+function outputPointForSourcePoint(
+  point: { x: number; y: number },
+  placement: ReturnType<typeof outputPlacementForPreset>,
+) {
+  const localPoint = {
+    x: point.x - placement.embeddedRegion.left,
+    y: point.y - placement.embeddedRegion.bottom,
+  };
+
+  switch (placement.pageRotate) {
+    case 90:
+      return {
+        x: placement.positionedPage.x - localPoint.y * placement.fitScale,
+        y: placement.positionedPage.y + localPoint.x * placement.fitScale,
+      };
+    case 180:
+      return {
+        x: placement.positionedPage.x - localPoint.x * placement.fitScale,
+        y: placement.positionedPage.y - localPoint.y * placement.fitScale,
+      };
+    case 270:
+      return {
+        x: placement.positionedPage.x + localPoint.y * placement.fitScale,
+        y: placement.positionedPage.y - localPoint.x * placement.fitScale,
+      };
+    default:
+      return {
+        x: placement.positionedPage.x + localPoint.x * placement.fitScale,
+        y: placement.positionedPage.y + localPoint.y * placement.fitScale,
+      };
+  }
+}
+
+function sourcePointForOutputPoint(
+  point: { x: number; y: number },
+  placement: ReturnType<typeof outputPlacementForPreset>,
+) {
+  const outputPoint = {
+    x: point.x - placement.positionedPage.x,
+    y: point.y - placement.positionedPage.y,
+  };
+
+  switch (placement.pageRotate) {
+    case 90:
+      return {
+        x: outputPoint.y / placement.fitScale + placement.embeddedRegion.left,
+        y: -outputPoint.x / placement.fitScale + placement.embeddedRegion.bottom,
+      };
+    case 180:
+      return {
+        x: -outputPoint.x / placement.fitScale + placement.embeddedRegion.left,
+        y: -outputPoint.y / placement.fitScale + placement.embeddedRegion.bottom,
+      };
+    case 270:
+      return {
+        x: -outputPoint.y / placement.fitScale + placement.embeddedRegion.left,
+        y: outputPoint.x / placement.fitScale + placement.embeddedRegion.bottom,
+      };
+    default:
+      return {
+        x: outputPoint.x / placement.fitScale + placement.embeddedRegion.left,
+        y: outputPoint.y / placement.fitScale + placement.embeddedRegion.bottom,
+      };
+  }
+}
+
+function sourceBoundsForOutputRect(
+  rect: { x: number; y: number; width: number; height: number },
+  placement: ReturnType<typeof outputPlacementForPreset>,
+) {
+  const points = [
+    { x: rect.x, y: rect.y },
+    { x: rect.x + rect.width, y: rect.y },
+    { x: rect.x + rect.width, y: rect.y + rect.height },
+    { x: rect.x, y: rect.y + rect.height },
+  ].map((point) => sourcePointForOutputPoint(point, placement));
+  const xs = points.map((point) => point.x);
+  const ys = points.map((point) => point.y);
+
+  return {
+    left: Math.min(...xs),
+    bottom: Math.min(...ys),
+    right: Math.max(...xs),
+    top: Math.max(...ys),
+  };
+}
+
+function outputRectForSourceBounds(
+  bounds: { left: number; bottom: number; right: number; top: number },
+  placement: ReturnType<typeof outputPlacementForPreset>,
+) {
+  const points = [
+    { x: bounds.left, y: bounds.bottom },
+    { x: bounds.right, y: bounds.bottom },
+    { x: bounds.right, y: bounds.top },
+    { x: bounds.left, y: bounds.top },
+  ].map((point) => outputPointForSourcePoint(point, placement));
+  const xs = points.map((point) => point.x);
+  const ys = points.map((point) => point.y);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+
+  return {
+    x: minX,
+    y: minY,
+    width: Math.max(...xs) - minX,
+    height: Math.max(...ys) - minY,
+  };
+}
+
+function positionedTextLinesFromItemsInOutputRegion(
+  items: unknown[],
+  pageWidth: number,
+  pageHeight: number,
+  sourcePageRotate: number,
+  preset: CropPreset,
+  labelType: LabelType,
+  region: { x: number; y: number; width: number; height: number },
+) {
+  const placement = outputPlacementForPreset(
+    pageWidth,
+    pageHeight,
+    sourcePageRotate,
+    preset,
+    labelType,
+  );
+  const positionedItems = items
+    .filter(isPositionedTextItem)
+    .map((item) => {
+      const outputPoint = outputPointForSourcePoint(
+        {
+          x: item.transform[4] ?? 0,
+          y: item.transform[5] ?? 0,
+        },
+        placement,
+      );
+      const regionX = outputPoint.x / OUTPUT_PAGE_WIDTH;
+      const regionY = (OUTPUT_PAGE_HEIGHT - outputPoint.y) / OUTPUT_PAGE_HEIGHT;
+
+      return {
+        text: item.str.trim(),
+        x: outputPoint.x,
+        y: outputPoint.y,
+        isInRegion:
+          regionX >= region.x &&
+          regionX <= region.x + region.width &&
+          regionY >= region.y &&
+          regionY <= region.y + region.height,
+      };
+    })
+    .filter((item) => item.text && item.isInRegion);
+
+  return positionedTextLinesFromItems(
+    positionedItems.map((item) => ({
+      str: item.text,
+      transform: [1, 0, 0, 1, item.x, item.y],
+    })),
+  );
 }
 
 function clampValue(value: number, minimum: number, maximum: number) {
@@ -877,6 +1492,12 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
   const [showRecipientName, setShowRecipientName] = useState(
     DEFAULT_SHOW_RECIPIENT_NAME,
   );
+  const [showInpostFamilyRecipientName, setShowInpostFamilyRecipientName] =
+    useState(DEFAULT_SHOW_INPOST_FAMILY_RECIPIENT_NAME);
+  const [showInpostItalyRecipientName, setShowInpostItalyRecipientName] =
+    useState(DEFAULT_SHOW_INPOST_ITALY_RECIPIENT_NAME);
+  const [hidePosteItalianeSenderAddress, setHidePosteItalianeSenderAddress] =
+    useState(DEFAULT_HIDE_POSTE_ITALIANE_SENDER_ADDRESS);
   const [hideInpostItalySenderAddress, setHideInpostItalySenderAddress] =
     useState(DEFAULT_HIDE_INPOST_ITALY_SENDER_ADDRESS);
   const [recipientNameFontSize, setRecipientNameFontSize] = useState(
@@ -897,6 +1518,12 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
   const [isPreviewPanning, setIsPreviewPanning] = useState(false);
   const controlsDisabled = file === null;
   const { trigger } = useWebHaptics();
+  const selectedShowRecipientName =
+    labelType === "inpostItaly"
+      ? showInpostItalyRecipientName
+      : labelType === "inpostFamily"
+        ? showInpostFamilyRecipientName
+        : showRecipientName;
 
   const basePreset = useMemo(
     () => initialPreset(labelType, useHalfPageBRT),
@@ -918,6 +1545,9 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
       verticalOffset: number,
       nextLabelType: LabelType,
       nextShowRecipientName: boolean,
+      nextShowInpostFamilyRecipientName: boolean,
+      nextShowInpostItalyRecipientName: boolean,
+      nextHidePosteItalianeSenderAddress: boolean,
       nextHideInpostItalySenderAddress: boolean,
     ) => {
       void cropPdf(
@@ -927,6 +1557,9 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
         verticalOffset,
         nextLabelType,
         nextShowRecipientName,
+        nextShowInpostFamilyRecipientName,
+        nextShowInpostItalyRecipientName,
+        nextHidePosteItalianeSenderAddress,
         nextHideInpostItalySenderAddress,
       );
     },
@@ -1098,6 +1731,15 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
       storedUseHalfPageBrtPreference.hasStoredValue;
     setUseHalfPageBRT(storedUseHalfPageBrtPreference.value);
     setShowRecipientName(getStoredShowRecipientNamePreference());
+    setShowInpostFamilyRecipientName(
+      getStoredShowInpostFamilyRecipientNamePreference(),
+    );
+    setShowInpostItalyRecipientName(
+      getStoredShowInpostItalyRecipientNamePreference(),
+    );
+    setHidePosteItalianeSenderAddress(
+      getStoredHidePosteItalianeSenderAddressPreference(),
+    );
     setHideInpostItalySenderAddress(
       getStoredHideInpostItalySenderAddressPreference(),
     );
@@ -1144,6 +1786,78 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
       // Ignore persistence failures and keep current session state.
     }
   }, [hasLoadedControlPreferences, showRecipientName]);
+
+  useEffect(() => {
+    if (!hasLoadedControlPreferences) {
+      return;
+    }
+
+    try {
+      if (
+        showInpostFamilyRecipientName ===
+        DEFAULT_SHOW_INPOST_FAMILY_RECIPIENT_NAME
+      ) {
+        window.localStorage.removeItem(
+          SHOW_INPOST_FAMILY_RECIPIENT_NAME_STORAGE_KEY,
+        );
+      } else {
+        window.localStorage.setItem(
+          SHOW_INPOST_FAMILY_RECIPIENT_NAME_STORAGE_KEY,
+          String(showInpostFamilyRecipientName),
+        );
+      }
+    } catch {
+      // Ignore persistence failures and keep current session state.
+    }
+  }, [hasLoadedControlPreferences, showInpostFamilyRecipientName]);
+
+  useEffect(() => {
+    if (!hasLoadedControlPreferences) {
+      return;
+    }
+
+    try {
+      if (
+        showInpostItalyRecipientName ===
+        DEFAULT_SHOW_INPOST_ITALY_RECIPIENT_NAME
+      ) {
+        window.localStorage.removeItem(
+          SHOW_INPOST_ITALY_RECIPIENT_NAME_STORAGE_KEY,
+        );
+      } else {
+        window.localStorage.setItem(
+          SHOW_INPOST_ITALY_RECIPIENT_NAME_STORAGE_KEY,
+          String(showInpostItalyRecipientName),
+        );
+      }
+    } catch {
+      // Ignore persistence failures and keep current session state.
+    }
+  }, [hasLoadedControlPreferences, showInpostItalyRecipientName]);
+
+  useEffect(() => {
+    if (!hasLoadedControlPreferences) {
+      return;
+    }
+
+    try {
+      if (
+        hidePosteItalianeSenderAddress ===
+        DEFAULT_HIDE_POSTE_ITALIANE_SENDER_ADDRESS
+      ) {
+        window.localStorage.removeItem(
+          HIDE_POSTE_ITALIANE_SENDER_ADDRESS_STORAGE_KEY,
+        );
+      } else {
+        window.localStorage.setItem(
+          HIDE_POSTE_ITALIANE_SENDER_ADDRESS_STORAGE_KEY,
+          String(hidePosteItalianeSenderAddress),
+        );
+      }
+    } catch {
+      // Ignore persistence failures and keep current session state.
+    }
+  }, [hasLoadedControlPreferences, hidePosteItalianeSenderAddress]);
 
   useEffect(() => {
     if (!hasLoadedControlPreferences) {
@@ -1200,16 +1914,22 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
       offsetY,
       labelType,
       showRecipientName,
+      showInpostFamilyRecipientName,
+      showInpostItalyRecipientName,
+      hidePosteItalianeSenderAddress,
       hideInpostItalySenderAddress,
     );
   }, [
     file,
+    hidePosteItalianeSenderAddress,
     hideInpostItalySenderAddress,
     labelType,
     offsetX,
     offsetY,
     preset,
     recipientNameFontSize,
+    showInpostFamilyRecipientName,
+    showInpostItalyRecipientName,
     showRecipientName,
   ]);
 
@@ -1618,7 +2338,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
     nextFile: File,
     nextPreset: CropPreset,
   ) {
-    const cacheKey = fileCacheKey(nextFile);
+    const cacheKey = `posteItaliane:${fileCacheKey(nextFile)}`;
     const cachedRecipientName = recipientNameCacheRef.current.get(cacheKey);
 
     if (cachedRecipientName !== undefined) {
@@ -1772,6 +2492,215 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
     }
   }
 
+  async function extractInpostFamilyRecipientName(
+    nextFile: File,
+    nextPreset: CropPreset,
+  ) {
+    const cacheKey = `inpostFamily:${fileCacheKey(nextFile)}`;
+    const cachedRecipientName = recipientNameCacheRef.current.get(cacheKey);
+
+    if (cachedRecipientName !== undefined) {
+      return cachedRecipientName;
+    }
+
+    const arrayBuffer = await nextFile.arrayBuffer();
+    const pdf = await pdfjs.getDocument({ data: arrayBuffer.slice(0) }).promise;
+
+    try {
+      const firstPage = await pdf.getPage(1);
+      const textContent = await firstPage.getTextContent();
+      const viewport = firstPage.getViewport({ scale: 1 });
+      const textRecipientName = extractInpostFamilyRecipientFromTextLines(
+        positionedTextLinesFromItemsInOutputRegion(
+          textContent.items,
+          viewport.width,
+          viewport.height,
+          firstPage.rotate,
+          nextPreset,
+          "inpostFamily",
+          INPOST_FAMILY_RECIPIENT_REGION,
+        )
+          .sort((first, second) => second.y - first.y || first.x - second.x)
+          .map((line) => line.text),
+      );
+
+      if (textRecipientName) {
+        recipientNameCacheRef.current.set(cacheKey, textRecipientName);
+        return textRecipientName;
+      }
+
+      const scale = 2.5;
+      const ocrViewport = firstPage.getViewport({ scale });
+      const renderedCanvas = document.createElement("canvas");
+      renderedCanvas.width = Math.ceil(ocrViewport.width);
+      renderedCanvas.height = Math.ceil(ocrViewport.height);
+
+      const context = renderedCanvas.getContext("2d");
+
+      if (!context) {
+        recipientNameCacheRef.current.set(cacheKey, null);
+        return null;
+      }
+
+      await firstPage.render({
+        canvas: renderedCanvas,
+        canvasContext: context,
+        viewport: ocrViewport,
+      }).promise;
+
+      const cropCanvas = document.createElement("canvas");
+      const cropWidth = Math.round(
+        (nextPreset.width / Math.max(nextPreset.scale, 0.1)) * scale,
+      );
+      const cropHeight = Math.round(
+        (nextPreset.height / Math.max(nextPreset.scale, 0.1)) * scale,
+      );
+      cropCanvas.width = cropWidth;
+      cropCanvas.height = cropHeight;
+
+      const cropContext = cropCanvas.getContext("2d");
+
+      if (!cropContext) {
+        recipientNameCacheRef.current.set(cacheKey, null);
+        return null;
+      }
+
+      const sourceX = (nextPreset.x / Math.max(nextPreset.scale, 0.1)) * scale;
+      const sourceY =
+        renderedCanvas.height -
+        ((nextPreset.y + nextPreset.height) / Math.max(nextPreset.scale, 0.1)) *
+          scale;
+
+      cropContext.drawImage(
+        renderedCanvas,
+        sourceX,
+        sourceY,
+        cropWidth,
+        cropHeight,
+        0,
+        0,
+        cropWidth,
+        cropHeight,
+      );
+
+      const rotatedCanvas = document.createElement("canvas");
+      const rotate = ((nextPreset.rotate % 360) + 360) % 360;
+      const isQuarterTurn = rotate === 90 || rotate === 270;
+      rotatedCanvas.width = isQuarterTurn
+        ? cropCanvas.height
+        : cropCanvas.width;
+      rotatedCanvas.height = isQuarterTurn
+        ? cropCanvas.width
+        : cropCanvas.height;
+      const rotatedContext = rotatedCanvas.getContext("2d");
+
+      if (!rotatedContext) {
+        recipientNameCacheRef.current.set(cacheKey, null);
+        return null;
+      }
+
+      rotatedContext.fillStyle = "#ffffff";
+      rotatedContext.fillRect(0, 0, rotatedCanvas.width, rotatedCanvas.height);
+      rotatedContext.translate(
+        rotatedCanvas.width / 2,
+        rotatedCanvas.height / 2,
+      );
+      rotatedContext.rotate((rotate * Math.PI) / 180);
+      rotatedContext.drawImage(
+        cropCanvas,
+        -cropCanvas.width / 2,
+        -cropCanvas.height / 2,
+      );
+
+      const recipientRegionCanvas = cropCanvasRegion(
+        rotatedCanvas,
+        INPOST_FAMILY_RECIPIENT_REGION,
+      );
+
+      if (!recipientRegionCanvas) {
+        recipientNameCacheRef.current.set(cacheKey, null);
+        return null;
+      }
+
+      const worker = await getOcrWorker();
+      const { data } = await worker.recognize(recipientRegionCanvas);
+      const recipientName = extractInpostFamilyRecipientFromTextLines(
+        extractTextLines(data.text),
+      );
+
+      recipientNameCacheRef.current.set(cacheKey, recipientName);
+      return recipientName;
+    } finally {
+      pdf.destroy();
+    }
+  }
+
+  async function extractInpostItalyRecipientName(nextFile: File) {
+    const cacheKey = `inpostItaly:${fileCacheKey(nextFile)}`;
+    const cachedRecipientName = recipientNameCacheRef.current.get(cacheKey);
+
+    if (cachedRecipientName !== undefined) {
+      return cachedRecipientName;
+    }
+
+    const arrayBuffer = await nextFile.arrayBuffer();
+    const pdf = await pdfjs.getDocument({ data: arrayBuffer.slice(0) }).promise;
+
+    try {
+      const firstPage = await pdf.getPage(1);
+      const textContent = await firstPage.getTextContent();
+      const textRecipientName =
+        extractInpostItalyRecipientFromPositionedTextLines(
+          positionedTextLinesFromItems(textContent.items),
+        );
+
+      if (textRecipientName) {
+        recipientNameCacheRef.current.set(cacheKey, textRecipientName);
+        return textRecipientName;
+      }
+
+      const scale = 2.5;
+      const viewport = firstPage.getViewport({ scale });
+      const renderedCanvas = document.createElement("canvas");
+      renderedCanvas.width = Math.ceil(viewport.width);
+      renderedCanvas.height = Math.ceil(viewport.height);
+
+      const context = renderedCanvas.getContext("2d");
+
+      if (!context) {
+        recipientNameCacheRef.current.set(cacheKey, null);
+        return null;
+      }
+
+      await firstPage.render({
+        canvas: renderedCanvas,
+        canvasContext: context,
+        viewport,
+      }).promise;
+
+      const recipientRegionCanvas = cropCanvasRegion(
+        renderedCanvas,
+        INPOST_ITALY_RECIPIENT_REGION,
+      );
+
+      if (!recipientRegionCanvas) {
+        recipientNameCacheRef.current.set(cacheKey, null);
+        return null;
+      }
+
+      const worker = await getOcrWorker();
+      const { data } = await worker.recognize(recipientRegionCanvas);
+      const recipientName = extractInpostItalyRecipientFromTextLines(
+        extractTextLines(data.text),
+      );
+
+      recipientNameCacheRef.current.set(cacheKey, recipientName);
+      return recipientName;
+    } finally {
+      pdf.destroy();
+    }
+  }
+
   async function cropPdf(
     nextFile: File,
     nextPreset: CropPreset,
@@ -1779,6 +2708,9 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
     verticalOffset: number,
     nextLabelType: LabelType,
     nextShowRecipientName: boolean,
+    nextShowInpostFamilyRecipientName: boolean,
+    nextShowInpostItalyRecipientName: boolean,
+    nextHidePosteItalianeSenderAddress: boolean,
     nextHideInpostItalySenderAddress: boolean,
   ) {
     cropRequestVersionRef.current += 1;
@@ -1895,6 +2827,37 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
         rotate: degrees(pageRotate),
       });
 
+      if (
+        nextLabelType === "posteItaliane" &&
+        nextHidePosteItalianeSenderAddress
+      ) {
+        const basePlacement = outputPlacementForPreset(
+          pageWidth,
+          pageHeight,
+          sourcePageRotate,
+          BASE_PRESETS.posteItaliane,
+          "posteItaliane",
+        );
+        const currentPlacement = {
+          embeddedRegion,
+          fitScale,
+          pageRotate,
+          positionedPage,
+        };
+        const senderAddressSourceBounds = sourceBoundsForOutputRect(
+          POSTE_ITALIANE_SENDER_ADDRESS_MASK,
+          basePlacement,
+        );
+
+        outputPage.drawRectangle({
+          ...outputRectForSourceBounds(
+            senderAddressSourceBounds,
+            currentPlacement,
+          ),
+          color: rgb(1, 1, 1),
+        });
+      }
+
       if (nextLabelType === "inpostItaly" && nextHideInpostItalySenderAddress) {
         outputPage.drawRectangle({
           ...outputRectForSourceMask(
@@ -1929,6 +2892,76 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
           const textHeight = font.heightAtSize(fontSize);
 
           outputPage.drawText(recipientName, {
+            x: layout.x + (layout.width - textWidth) / 2,
+            y: layout.y + (layout.height - textHeight) / 2,
+            size: fontSize,
+            font,
+            color: rgb(0, 0, 0),
+            maxWidth: layout.width,
+          });
+        }
+      }
+
+      if (
+        nextLabelType === "inpostFamily" &&
+        nextShowInpostFamilyRecipientName
+      ) {
+        const recipientName = await extractInpostFamilyRecipientName(
+          nextFile,
+          nextPreset,
+        );
+
+        if (recipientName) {
+          const uppercaseRecipientName =
+            recipientName.toLocaleUpperCase("it-IT");
+          const font = await outputPdf.embedFont(StandardFonts.HelveticaBold);
+          const layout = inpostItalyRecipientNameLayout();
+          const fontSize = fittedRecipientFontSize(
+            uppercaseRecipientName,
+            layout.width,
+            recipientNameFontSize,
+            10,
+            font,
+          );
+          const textWidth = font.widthOfTextAtSize(
+            uppercaseRecipientName,
+            fontSize,
+          );
+          const textHeight = font.heightAtSize(fontSize);
+
+          outputPage.drawText(uppercaseRecipientName, {
+            x: layout.x + (layout.width - textWidth) / 2,
+            y: layout.y + (layout.height - textHeight) / 2,
+            size: fontSize,
+            font,
+            color: rgb(0, 0, 0),
+            maxWidth: layout.width,
+          });
+        }
+      }
+
+      if (nextLabelType === "inpostItaly" && nextShowInpostItalyRecipientName) {
+        const recipientName = await extractInpostItalyRecipientName(nextFile);
+
+        if (recipientName) {
+          const uppercaseRecipientName =
+            recipientName.toLocaleUpperCase("it-IT");
+          const font = await outputPdf.embedFont(StandardFonts.HelveticaBold);
+          const layout = inpostItalyRecipientNameLayout();
+          const fontSize = fittedRecipientFontSize(
+            uppercaseRecipientName,
+            layout.width,
+            recipientNameFontSize,
+            10,
+            font,
+          );
+          const textWidth = font.widthOfTextAtSize(
+            uppercaseRecipientName,
+            fontSize,
+          );
+          const textHeight = font.heightAtSize(fontSize);
+
+          outputPage.drawText(uppercaseRecipientName, {
             x: layout.x + (layout.width - textWidth) / 2,
             y: layout.y + (layout.height - textHeight) / 2,
             size: fontSize,
@@ -2097,10 +3130,10 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
           <div className="md:shrink-0">
             <div className="lg:flex lg:items-end lg:justify-between lg:gap-6">
               <div>
-                <div className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-[#1b6b63]">
+                <div className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-accent">
                   {messages.output.eyebrow}
                 </div>
-                <h2 className="text-2xl font-semibold tracking-tight text-[#082b2b]">
+                <h2 className="text-2xl font-semibold tracking-tight text-accent-deep">
                   {messages.output.title}
                 </h2>
               </div>
@@ -2164,7 +3197,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
             </div>
           </div>
 
-          <div className="mt-6 min-h-[28rem] overflow-hidden rounded-[2rem] border border-[#16302b14] bg-[linear-gradient(180deg,#fdfefd_0%,#f6fbfa_100%)] transition md:min-h-0 md:flex-1 lg:mt-6">
+          <div className="mt-6 min-h-112 overflow-hidden rounded-4xl border border-[#16302b14] bg-[linear-gradient(180deg,#fdfefd_0%,#f6fbfa_100%)] transition md:min-h-0 md:flex-1 lg:mt-6">
             <input
               ref={inputRef}
               type="file"
@@ -2176,7 +3209,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
             />
 
             {pdfUrl ? (
-              <div className="flex min-h-[28rem] flex-col items-center justify-center md:h-full md:min-h-0">
+              <div className="flex min-h-112 flex-col items-center justify-center md:h-full md:min-h-0">
                 <div className="flex w-full items-center justify-center p-6 sm:p-10 md:h-full md:min-h-0 md:flex-1 md:p-8">
                   <div className="flex size-full items-center justify-center aspect-2/3">
                     <div
@@ -2189,7 +3222,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                       }
                       style={previewCursorStyle}
                       className={cn(
-                        "relative aspect-2/3 w-full max-w-[28rem] overflow-hidden box-border border-2 border-[#1b6b63] rounded-lg bg-white shadow-[0_14px_40px_rgba(8,43,43,0.08)] md:h-full md:w-auto md:max-w-full",
+                        "relative aspect-2/3 w-full max-w-md overflow-hidden box-border border-2 border-accent rounded-lg bg-white shadow-[0_14px_40px_rgba(8,43,43,0.08)] md:h-full md:w-auto md:max-w-full",
                         labelType === "manualEditor" &&
                           "touch-none select-none pdf-preview-grab",
                         labelType === "manualEditor" &&
@@ -2199,7 +3232,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                     >
                       {isProcessing ? (
                         <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/72 backdrop-blur-[1px]">
-                          <div className="h-9 w-9 animate-spin rounded-full border-2 border-[#1b6b63]/20 border-t-[#1b6b63]" />
+                          <div className="h-9 w-9 animate-spin rounded-full border-2 border-accent/20 border-t-accent" />
                         </div>
                       ) : null}
                       <Document
@@ -2225,7 +3258,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                 </div>
               </div>
             ) : (
-              <div className="flex min-h-[28rem] items-center justify-center p-6 md:h-full md:min-h-0">
+              <div className="flex min-h-112 items-center justify-center p-6 md:h-full md:min-h-0">
                 <div
                   ref={dropZoneRef}
                   role="button"
@@ -2242,19 +3275,19 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                     }
                   }}
                   className={cn(
-                    "block w-full max-w-lg rounded-[1.8rem] border-2 border-dashed bg-white/80 p-8 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1b6b63]/20",
+                    "block w-full max-w-lg rounded-[1.8rem] border-2 border-dashed bg-white/80 p-8 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/20",
                     isDragging
-                      ? "cursor-copy border-[#1b6b63] bg-white"
-                      : "cursor-pointer border-[#16302b20] hover:border-[#1b6b63] hover:bg-white",
+                      ? "cursor-copy border-accent bg-white"
+                      : "cursor-pointer border-[#16302b20] hover:border-accent hover:bg-white",
                   )}
                 >
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#e6f3f1] text-[#1b6b63]">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-accent-light text-accent">
                     <UploadCloud size={26} />
                   </div>
-                  <div className="mt-5 text-2xl font-semibold tracking-tight text-[#082b2b]">
+                  <div className="mt-5 text-2xl font-semibold tracking-tight text-accent-deep">
                     {messages.output.dragTitle}
                   </div>
-                  <div className="mt-2 text-sm leading-7 text-[#56716a]">
+                  <div className="mt-2 text-sm leading-7 text-croplet-muted">
                     {messages.output.dragDescription}
                   </div>
                   <div className="mt-6 flex items-center justify-center gap-3">
@@ -2302,7 +3335,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                               void handleImportFromUrl();
                             }
                           }}
-                          className="h-11 w-full rounded-full border border-[#16302b18] bg-white px-8 pr-16 text-base text-[#16302b] outline-none transition placeholder:text-[#6a8680] focus:border-[#1b6b63] focus:ring-2 focus:ring-[#1b6b63]/15 md:text-sm"
+                          className="h-11 w-full rounded-full border border-[#16302b18] bg-white px-8 pr-16 text-base text-croplet-text outline-none transition placeholder:text-[#6a8680] focus:border-accent focus:ring-2 focus:ring-accent/15 md:text-sm"
                         />
                         <Button
                           type="button"
@@ -2318,7 +3351,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                           }}
                           disabled={isImportingUrl || !isImportUrlValid}
                           className={cn(
-                            "absolute right-1.5 top-1/2 h-9 w-9 -translate-y-1/2 px-0 disabled:bg-[#16302b]/45",
+                            "absolute right-1.5 top-1/2 h-9 w-9 -translate-y-1/2 px-0 disabled:bg-croplet-text/45",
                             isImportingUrl &&
                               "disabled:pointer-events-auto disabled:cursor-not-allowed",
                           )}
@@ -2375,15 +3408,15 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
 
         <div className="space-y-6 md:flex md:h-full md:min-h-0 md:flex-col md:overflow-hidden md:order-1">
           <div>
-            <div className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-[#1b6b63]">
+            <div className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-accent">
               {messages.controls.eyebrow}
             </div>
-            <h2 className="text-2xl font-semibold tracking-tight text-[#082b2b]">
+            <h2 className="text-2xl font-semibold tracking-tight text-accent-deep">
               {messages.controls.title}
             </h2>
           </div>
 
-          <div className="space-y-6 overflow-hidden rounded-[2rem] border border-[#16302b14] bg-[linear-gradient(180deg,#fdfefd_0%,#f6fbfa_100%)] p-5 md:flex md:flex-1 md:flex-col md:overflow-auto">
+          <div className="space-y-6 overflow-hidden rounded-4xl border border-[#16302b14] bg-[linear-gradient(180deg,#fdfefd_0%,#f6fbfa_100%)] p-5 md:flex md:flex-1 md:flex-col md:overflow-auto">
             <div className="space-y-2">
               <Label htmlFor="label-type">{messages.controls.labelType}</Label>
               <Select
@@ -2409,13 +3442,13 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
             {labelType === "brt" ? (
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-[1.2rem] border border-[#16302b10] bg-[#fcfdfc] px-4 py-3">
                 <div className="min-w-0 space-y-1">
-                  <div className="flex items-center gap-1.5 text-sm font-medium text-[#16302b]">
+                  <div className="flex items-center gap-1.5 text-sm font-medium text-croplet-text">
                     <span>{messages.controls.useHalfPage}</span>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
                           type="button"
-                          className="inline-flex items-center justify-center p-0 text-[#1b6b63] transition hover:text-[#14574f] focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1b6b63]/20"
+                          className="inline-flex items-center justify-center p-0 text-accent transition hover:text-[#14574f] focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/20"
                           aria-label={messages.controls.useHalfPageInfoLabel}
                         >
                           <Info size={12} strokeWidth={2.2} />
@@ -2431,7 +3464,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                       </TooltipContent>
                     </Tooltip>
                   </div>
-                  <div className="text-sm text-[#56716a]">
+                  <div className="text-sm text-croplet-muted">
                     {messages.controls.useHalfPageHint}
                   </div>
                 </div>
@@ -2444,34 +3477,45 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
               </div>
             ) : null}
 
-            {labelType === "inpostItaly" ? (
-              <div className="grid h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-[1.2rem] border border-[#16302b10] bg-[#fcfdfc] px-4">
-                <div className="min-w-0">
-                  <div className="text-sm font-medium leading-none text-[#16302b]">
-                    {messages.controls.hideSenderAddress}
-                  </div>
-                </div>
-                <Switch
-                  checked={hideInpostItalySenderAddress}
-                  onCheckedChange={setHideInpostItalySenderAddress}
-                  disabled={controlsDisabled}
-                  className="shrink-0"
-                />
-              </div>
-            ) : null}
-
-            {labelType === "posteItaliane" ? (
+            {labelType === "posteItaliane" ||
+            labelType === "inpostFamily" ||
+            labelType === "inpostItaly" ? (
               <div className="rounded-[1.2rem] border border-[#16302b10] bg-[#fcfdfc] px-4">
                 <div className="grid divide-y divide-[#16302b10]">
+                  {labelType === "posteItaliane" ||
+                  labelType === "inpostItaly" ? (
+                    <div className="grid h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium leading-none text-croplet-text">
+                          {messages.controls.hideSenderAddress}
+                        </div>
+                      </div>
+                      <Switch
+                        checked={
+                          labelType === "posteItaliane"
+                            ? hidePosteItalianeSenderAddress
+                            : hideInpostItalySenderAddress
+                        }
+                        onCheckedChange={
+                          labelType === "posteItaliane"
+                            ? setHidePosteItalianeSenderAddress
+                            : setHideInpostItalySenderAddress
+                        }
+                        disabled={controlsDisabled}
+                        className="shrink-0"
+                      />
+                    </div>
+                  ) : null}
+
                   <div className="grid h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 text-sm font-medium leading-none text-[#16302b]">
+                      <div className="flex items-center gap-1.5 text-sm font-medium leading-none text-croplet-text">
                         <span>{messages.controls.showRecipientName}</span>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <button
                               type="button"
-                              className="inline-flex items-center justify-center p-0 text-[#1b6b63] transition hover:text-[#14574f] focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1b6b63]/20"
+                              className="inline-flex items-center justify-center p-0 text-accent transition hover:text-[#14574f] focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/20"
                               aria-label={
                                 messages.controls.showRecipientNameInfoLabel
                               }
@@ -2491,8 +3535,14 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                       </div>
                     </div>
                     <Switch
-                      checked={showRecipientName}
-                      onCheckedChange={setShowRecipientName}
+                      checked={selectedShowRecipientName}
+                      onCheckedChange={
+                        labelType === "inpostItaly"
+                          ? setShowInpostItalyRecipientName
+                          : labelType === "inpostFamily"
+                            ? setShowInpostFamilyRecipientName
+                            : setShowRecipientName
+                      }
                       disabled={controlsDisabled}
                       className="shrink-0"
                     />
@@ -2500,7 +3550,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
 
                   <div className="grid h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
                     <div className="min-w-0">
-                      <div className="text-sm font-medium leading-none text-[#16302b]">
+                      <div className="text-sm font-medium leading-none text-croplet-text">
                         {messages.controls.recipientNameSize}
                       </div>
                     </div>
@@ -2511,8 +3561,10 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                         onClick={() =>
                           updateRecipientNameFontSize(recipientNameFontSize - 1)
                         }
-                        disabled={controlsDisabled || !showRecipientName}
-                        className="size-8 shrink-0 rounded-full px-0 disabled:pointer-events-auto disabled:cursor-not-allowed disabled:hover:border-[#16302b20] disabled:hover:text-[#16302b]"
+                        disabled={
+                          controlsDisabled || !selectedShowRecipientName
+                        }
+                        className="size-8 shrink-0 rounded-full px-0 disabled:pointer-events-auto disabled:cursor-not-allowed disabled:hover:border-[#16302b20] disabled:hover:text-croplet-text"
                         aria-label={messages.controls.decreaseRecipientNameSize}
                       >
                         <Minus size={14} />
@@ -2528,8 +3580,10 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                             Number(event.target.value) || 18,
                           )
                         }
-                        disabled={controlsDisabled || !showRecipientName}
-                        className="w-10 h-8 appearance-none rounded-md border border-[#16302b18] bg-white px-2 text-center text-sm leading-none text-[#16302b] outline-none transition [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none placeholder:text-[#6a8680] focus:border-[#1b6b63] focus:ring-2 focus:ring-[#1b6b63]/15 disabled:cursor-not-allowed disabled:bg-[#16302b08] disabled:text-[#6a8680]"
+                        disabled={
+                          controlsDisabled || !selectedShowRecipientName
+                        }
+                        className="w-10 h-8 appearance-none rounded-md border border-[#16302b18] bg-white px-2 text-center text-sm leading-none text-croplet-text outline-none transition [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none placeholder:text-[#6a8680] focus:border-accent focus:ring-2 focus:ring-accent/15 disabled:cursor-not-allowed disabled:bg-[#16302b08] disabled:text-[#6a8680]"
                         aria-label={
                           messages.controls.recipientNameSizeAdjustment
                         }
@@ -2540,8 +3594,10 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                         onClick={() =>
                           updateRecipientNameFontSize(recipientNameFontSize + 1)
                         }
-                        disabled={controlsDisabled || !showRecipientName}
-                        className="size-8 shrink-0 rounded-full px-0 disabled:pointer-events-auto disabled:cursor-not-allowed disabled:hover:border-[#16302b20] disabled:hover:text-[#16302b]"
+                        disabled={
+                          controlsDisabled || !selectedShowRecipientName
+                        }
+                        className="size-8 shrink-0 rounded-full px-0 disabled:pointer-events-auto disabled:cursor-not-allowed disabled:hover:border-[#16302b20] disabled:hover:text-croplet-text"
                         aria-label={messages.controls.increaseRecipientNameSize}
                       >
                         <Plus size={14} />
@@ -2555,10 +3611,12 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
             <div className="space-y-5">
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-[#56716a]">
+                  <span className="text-croplet-muted">
                     {messages.controls.horizontal}
                   </span>
-                  <span className="font-medium text-[#16302b]">{offsetX}</span>
+                  <span className="font-medium text-croplet-text">
+                    {offsetX}
+                  </span>
                 </div>
                 <SliderWithDefaultNotch
                   value={[offsetX]}
@@ -2574,10 +3632,12 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-[#56716a]">
+                  <span className="text-croplet-muted">
                     {messages.controls.vertical}
                   </span>
-                  <span className="font-medium text-[#16302b]">{offsetY}</span>
+                  <span className="font-medium text-croplet-text">
+                    {offsetY}
+                  </span>
                 </div>
                 <SliderWithDefaultNotch
                   value={[offsetY]}
@@ -2593,10 +3653,10 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-[#56716a]">
+                  <span className="text-croplet-muted">
                     {messages.controls.scale}
                   </span>
-                  <span className="font-medium text-[#16302b]">
+                  <span className="font-medium text-croplet-text">
                     {Math.round(preset.scale * 100)}%
                   </span>
                 </div>
@@ -2615,10 +3675,10 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
               {labelType === "manualEditor" ? (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-[#56716a]">
+                    <span className="text-croplet-muted">
                       {messages.controls.rotation}
                     </span>
-                    <span className="font-medium text-[#16302b]">
+                    <span className="font-medium text-croplet-text">
                       {rotationOffset}°
                     </span>
                   </div>
@@ -2641,7 +3701,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                 <Button
                   type="button"
                   variant="ghost"
-                  className="justify-center px-4 disabled:pointer-events-auto disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-[#1b6b63]"
+                  className="justify-center px-4 disabled:pointer-events-auto disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-accent"
                   disabled={controlsDisabled}
                   onClick={() => {
                     setOffsetX(0);
@@ -2661,19 +3721,19 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
             <div className="flex items-center justify-center gap-4 border-t border-[#16302b10] pt-4">
               <Link
                 href="/privacy"
-                className="text-sm font-medium text-[#56716a] transition-colors hover:text-[#1b6b63]"
+                className="text-sm font-medium text-croplet-muted transition-colors hover:text-accent"
               >
                 {messages.controls.privacy}
               </Link>
               <ExternalLink
                 href="https://buymeacoffee.com/ragone"
-                className="text-sm font-medium text-[#56716a] transition-colors hover:text-[#1b6b63]"
+                className="text-sm font-medium text-croplet-muted transition-colors hover:text-accent"
               >
                 {messages.controls.donate}
               </ExternalLink>
               <ExternalLink
                 href="https://github.com/umbertoragone/croplet"
-                className="text-sm font-medium text-[#56716a] transition-colors hover:text-[#1b6b63]"
+                className="text-sm font-medium text-croplet-muted transition-colors hover:text-accent"
               >
                 {messages.controls.viewOnGitHub}
               </ExternalLink>
