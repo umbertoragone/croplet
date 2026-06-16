@@ -107,6 +107,8 @@ Manual mode is intentionally interactive. The preview uses a grab cursor, and th
 
 - [ ] Multiple PDF selection support
 - [ ] Bulk processing workflow (for users who need to process the same type of labels in large batches)
+- [ ] More language translations
+- [ ] More carrier presets, especially for labels from different countries
 
 ## Contributing
 
