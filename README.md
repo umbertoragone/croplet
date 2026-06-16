@@ -118,3 +118,11 @@ Good examples of useful contributions are:
 - new language translations
 - improvements to label detection, cropping, and export
 - fixes or UX improvements for high-volume desktop use
+
+### Vinted Label Coverage
+
+Croplet needs help from people who ship Vinted orders with printed labels outside Italy, for example in France, Germany, Spain, the UK, the USA, Greece, Romania, and other countries where Vinted operates.
+
+Those contributions make it possible to build a better product for Vinted users across the globe and support more label types over time, including GLS, DHL Express, Colissimo, Chronopost, USPS, Better Trucks, FedEx, SpeedX, Evri, Yodel, DPD, Royal Mail, Relay, AnyVan, and others.
+
+Useful contributions include redacted/blurred sample labels in PDF format (as provided from Vinted) to be able to determine the correct crop parameters and build presets for those labels. If you can share a sample label, please open an issue or contact me directly via email.
