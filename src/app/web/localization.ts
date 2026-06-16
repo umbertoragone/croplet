@@ -21,6 +21,7 @@ export type WebMessages = {
       | "vintedGo"
       | "brt"
       | "inpostFamily"
+      | "inpostItaly"
       | "ups"
       | "dhl"
       | "manualEditor",
@@ -66,6 +67,7 @@ export type WebMessages = {
       showRecipientName: string;
       showRecipientNameInfoLabel: string;
       showRecipientNameInfoTooltip: string;
+      hideSenderAddress: string;
       recipientNameSize: string;
       decreaseRecipientNameSize: string;
       increaseRecipientNameSize: string;
@@ -103,6 +105,7 @@ const messages: Record<WebLocale, WebMessages> = {
         vintedGo: "Poste Italiane (VintedGo)",
         brt: "BRT",
         inpostFamily: "InPost / Mondial Relay / Hermes",
+        inpostItaly: "InPost (Italy)",
         ups: "UPS",
         dhl: "DHL",
         manualEditor: "Manual crop",
@@ -149,6 +152,7 @@ const messages: Record<WebLocale, WebMessages> = {
         showRecipientNameInfoLabel: "Why this helps",
         showRecipientNameInfoTooltip:
           "Prints the recipient name in large text so staff can find the parcel faster at delivery.",
+        hideSenderAddress: "Hide sender address",
         recipientNameSize: "Recipient name size",
         decreaseRecipientNameSize: "Decrease recipient name size",
         increaseRecipientNameSize: "Increase recipient name size",
@@ -184,6 +188,7 @@ const messages: Record<WebLocale, WebMessages> = {
         vintedGo: "Poste Italiane (VintedGo)",
         brt: "BRT",
         inpostFamily: "InPost / Mondial Relay / Hermes",
+        inpostItaly: "InPost (Italia)",
         ups: "UPS",
         dhl: "DHL",
         manualEditor: "Ritaglio manuale",
@@ -231,6 +236,7 @@ const messages: Record<WebLocale, WebMessages> = {
         showRecipientNameInfoLabel: "Perché aiuta",
         showRecipientNameInfoTooltip:
           "Stampa il nome del destinatario in grande per consentire agli addetti di trovare il pacco più velocemente alla consegna.",
+        hideSenderAddress: "Nascondi indirizzo mittente",
         recipientNameSize: "Dimensione nome destinatario",
         decreaseRecipientNameSize: "Riduci dimensione nome destinatario",
         increaseRecipientNameSize: "Aumenta dimensione nome destinatario",

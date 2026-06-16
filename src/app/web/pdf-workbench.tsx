@@ -68,6 +68,7 @@ type LabelType =
   | "vintedGo"
   | "brt"
   | "inpostFamily"
+  | "inpostItaly"
   | "ups"
   | "dhl"
   | "manualEditor";
@@ -128,6 +129,7 @@ const MANUAL_OFFSET_MAX = 240;
 const DEFAULT_USE_HALF_PAGE_BRT = true;
 const DEFAULT_SHOW_RECIPIENT_NAME = true;
 const DEFAULT_RECIPIENT_NAME_FONT_SIZE = 18;
+const DEFAULT_HIDE_INPOST_ITALY_SENDER_ADDRESS = false;
 const DEFAULT_SCALE_OFFSET_MIN = -0.5;
 const DEFAULT_SCALE_OFFSET_MAX = 0.5;
 const MANUAL_SCALE_OFFSET_MIN = -0.8;
@@ -138,11 +140,19 @@ const USE_HALF_PAGE_BRT_STORAGE_KEY = "croplet-web-use-half-page-brt";
 const SHOW_RECIPIENT_NAME_STORAGE_KEY = "croplet-web-show-recipient-name";
 const RECIPIENT_NAME_FONT_SIZE_STORAGE_KEY =
   "croplet-web-recipient-name-font-size";
+const HIDE_INPOST_ITALY_SENDER_ADDRESS_STORAGE_KEY =
+  "croplet-web-hide-inpost-italy-sender-address";
 const INPOST_LOGO_REGION = {
   x: 0.62,
   y: 0.58,
   width: 0.33,
   height: 0.24,
+} as const;
+const INPOST_ITALY_SENDER_ADDRESS_MASK = {
+  x: 0.39,
+  y: 0.305,
+  width: 0.38,
+  height: 0.078,
 } as const;
 const POSTE_ITALIANE_RECIPIENT_REGION = {
   x: 0.27,
@@ -183,6 +193,7 @@ const LABEL_OPTIONS: { value: LabelType }[] = [
   { value: "vintedGo" },
   { value: "brt" },
   { value: "inpostFamily" },
+  { value: "inpostItaly" },
   { value: "ups" },
   { value: "dhl" },
   { value: "manualEditor" },
@@ -218,13 +229,28 @@ const BASE_PRESETS: Record<Exclude<LabelType, "brt">, CropPreset> = {
     rotate: 90,
     scale: 1.03,
   },
+  inpostItaly: {
+    x: 0,
+    y: 0,
+    width: OUTPUT_PAGE_WIDTH,
+    height: OUTPUT_PAGE_HEIGHT,
+    rotate: 0,
+    scale: 1.09,
+  },
   ups: { x: 60, y: 60, width: 288, height: 432, rotate: 0, scale: 1 },
   dhl: { x: 82, y: 90, width: 288, height: 432, rotate: 0, scale: 0.85 },
   manualEditor: { x: 48, y: 45, width: 288, height: 432, rotate: 0, scale: 1 },
 };
 
 const BRT_PRESETS = {
-  fullPage: { x: -40, y: 480, width: 432, height: 288, rotate: 270, scale: 1.6 },
+  fullPage: {
+    x: -40,
+    y: 480,
+    width: 432,
+    height: 288,
+    rotate: 270,
+    scale: 1.6,
+  },
   halfPage: { x: 31, y: 298, width: 288, height: 432, rotate: 0, scale: 1.08 },
 } satisfies Record<"fullPage" | "halfPage", CropPreset>;
 
@@ -239,6 +265,64 @@ function initialPreset(
   }
 
   return { ...BASE_PRESETS[labelType] };
+}
+
+function usesCenteredFullPage(labelType: LabelType) {
+  return labelType === "manualEditor" || labelType === "inpostItaly";
+}
+
+function outputRectForSourceMask(
+  mask: { x: number; y: number; width: number; height: number },
+  pageWidth: number,
+  pageHeight: number,
+  pageRotate: number,
+  fitScale: number,
+  positionedPage: { x: number; y: number },
+) {
+  const left = pageWidth * mask.x;
+  const right = pageWidth * (mask.x + mask.width);
+  const top = pageHeight * (1 - mask.y);
+  const bottom = pageHeight * (1 - mask.y - mask.height);
+  const points = [
+    { x: left, y: bottom },
+    { x: right, y: bottom },
+    { x: right, y: top },
+    { x: left, y: top },
+  ].map((point) => {
+    switch (pageRotate) {
+      case 90:
+        return {
+          x: positionedPage.x - point.y * fitScale,
+          y: positionedPage.y + point.x * fitScale,
+        };
+      case 180:
+        return {
+          x: positionedPage.x - point.x * fitScale,
+          y: positionedPage.y - point.y * fitScale,
+        };
+      case 270:
+        return {
+          x: positionedPage.x + point.y * fitScale,
+          y: positionedPage.y - point.x * fitScale,
+        };
+      default:
+        return {
+          x: positionedPage.x + point.x * fitScale,
+          y: positionedPage.y + point.y * fitScale,
+        };
+    }
+  });
+  const xs = points.map((point) => point.x);
+  const ys = points.map((point) => point.y);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+
+  return {
+    x: minX,
+    y: minY,
+    width: Math.max(...xs) - minX,
+    height: Math.max(...ys) - minY,
+  };
 }
 
 function normalizePosteItalianeText(value: string) {
@@ -306,6 +390,26 @@ function getStoredShowRecipientNamePreference() {
   return DEFAULT_SHOW_RECIPIENT_NAME;
 }
 
+function getStoredHideInpostItalySenderAddressPreference() {
+  try {
+    const storedValue = window.localStorage.getItem(
+      HIDE_INPOST_ITALY_SENDER_ADDRESS_STORAGE_KEY,
+    );
+
+    if (storedValue === "true") {
+      return true;
+    }
+
+    if (storedValue === "false") {
+      return false;
+    }
+  } catch {
+    // Fall back to default when storage is unavailable.
+  }
+
+  return DEFAULT_HIDE_INPOST_ITALY_SENDER_ADDRESS;
+}
+
 function getStoredRecipientNameFontSizePreference() {
   try {
     const storedValue = window.localStorage.getItem(
@@ -342,6 +446,25 @@ function isBrtLabel(text: string) {
   );
 }
 
+function isInpostItalyLabel(text: string) {
+  const hasInpostLogoText = text.includes("inpost");
+  const hasCustomerReference =
+    text.includes("numero riferimento cliente") ||
+    text.includes("numero riferimento") ||
+    text.includes("riferimento cliente");
+  const routingFeatureCount = [
+    text.includes("deposito"),
+    text.includes("giro"),
+    text.includes("provincia"),
+  ].filter(Boolean).length;
+
+  return (
+    (hasCustomerReference && routingFeatureCount >= 1) ||
+    (hasInpostLogoText && routingFeatureCount >= 2) ||
+    routingFeatureCount >= 3
+  );
+}
+
 function detectLabelFromExtractedText(
   text: string,
   pageWidth: number,
@@ -352,6 +475,10 @@ function detectLabelFromExtractedText(
 
   if (!foldedText && !normalizedText) {
     return null;
+  }
+
+  if (isInpostItalyLabel(normalizedText)) {
+    return { labelType: "inpostItaly" };
   }
 
   const looksLikeInpostForm =
@@ -631,7 +758,11 @@ function clampOffsetValue(value: number, minimum: number, maximum: number) {
   return clampValue(Math.round(value), minimum, maximum);
 }
 
-function clampScaleOffsetValue(value: number, minimum: number, maximum: number) {
+function clampScaleOffsetValue(
+  value: number,
+  minimum: number,
+  maximum: number,
+) {
   const roundedValue = Math.round(value * 100) / 100;
 
   return clampValue(roundedValue, minimum, maximum);
@@ -746,6 +877,8 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
   const [showRecipientName, setShowRecipientName] = useState(
     DEFAULT_SHOW_RECIPIENT_NAME,
   );
+  const [hideInpostItalySenderAddress, setHideInpostItalySenderAddress] =
+    useState(DEFAULT_HIDE_INPOST_ITALY_SENDER_ADDRESS);
   const [recipientNameFontSize, setRecipientNameFontSize] = useState(
     DEFAULT_RECIPIENT_NAME_FONT_SIZE,
   );
@@ -785,6 +918,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
       verticalOffset: number,
       nextLabelType: LabelType,
       nextShowRecipientName: boolean,
+      nextHideInpostItalySenderAddress: boolean,
     ) => {
       void cropPdf(
         nextFile,
@@ -793,6 +927,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
         verticalOffset,
         nextLabelType,
         nextShowRecipientName,
+        nextHideInpostItalySenderAddress,
       );
     },
   );
@@ -808,7 +943,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
       event.deltaMode === WheelEvent.DOM_DELTA_LINE
         ? 16
         : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
-          ? previewFrameRef.current?.clientHeight ?? 0
+          ? (previewFrameRef.current?.clientHeight ?? 0)
           : 1;
     const normalizedDelta = event.deltaY * deltaMultiplier;
     const nextScaleOffset = clampScaleOffsetValue(
@@ -963,6 +1098,9 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
       storedUseHalfPageBrtPreference.hasStoredValue;
     setUseHalfPageBRT(storedUseHalfPageBrtPreference.value);
     setShowRecipientName(getStoredShowRecipientNamePreference());
+    setHideInpostItalySenderAddress(
+      getStoredHideInpostItalySenderAddressPreference(),
+    );
     setRecipientNameFontSize(getStoredRecipientNameFontSizePreference());
     setHasLoadedControlPreferences(true);
   }, []);
@@ -1013,6 +1151,30 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
     }
 
     try {
+      if (
+        hideInpostItalySenderAddress ===
+        DEFAULT_HIDE_INPOST_ITALY_SENDER_ADDRESS
+      ) {
+        window.localStorage.removeItem(
+          HIDE_INPOST_ITALY_SENDER_ADDRESS_STORAGE_KEY,
+        );
+      } else {
+        window.localStorage.setItem(
+          HIDE_INPOST_ITALY_SENDER_ADDRESS_STORAGE_KEY,
+          String(hideInpostItalySenderAddress),
+        );
+      }
+    } catch {
+      // Ignore persistence failures and keep current session state.
+    }
+  }, [hasLoadedControlPreferences, hideInpostItalySenderAddress]);
+
+  useEffect(() => {
+    if (!hasLoadedControlPreferences) {
+      return;
+    }
+
+    try {
       if (recipientNameFontSize === DEFAULT_RECIPIENT_NAME_FONT_SIZE) {
         window.localStorage.removeItem(RECIPIENT_NAME_FONT_SIZE_STORAGE_KEY);
       } else {
@@ -1031,9 +1193,18 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
       return;
     }
 
-    runCropPdf(file, preset, offsetX, offsetY, labelType, showRecipientName);
+    runCropPdf(
+      file,
+      preset,
+      offsetX,
+      offsetY,
+      labelType,
+      showRecipientName,
+      hideInpostItalySenderAddress,
+    );
   }, [
     file,
+    hideInpostItalySenderAddress,
     labelType,
     offsetX,
     offsetY,
@@ -1110,7 +1281,9 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
     }
 
     if (dataTransfer.items.length > 0) {
-      return Array.from(dataTransfer.items).some((item) => item.kind === "file");
+      return Array.from(dataTransfer.items).some(
+        (item) => item.kind === "file",
+      );
     }
 
     return dataTransfer.files.length > 0;
@@ -1126,8 +1299,9 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
     }
 
     return (
-      Array.from(dataTransfer.items).find((item) => item.kind === "file")?.getAsFile() ??
-      null
+      Array.from(dataTransfer.items)
+        .find((item) => item.kind === "file")
+        ?.getAsFile() ?? null
     );
   }
 
@@ -1403,6 +1577,11 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
         baseViewport.height,
       );
 
+      if (ocrMatch?.labelType === "inpostItaly") {
+        labelDetectionCacheRef.current.set(cacheKey, ocrMatch);
+        return ocrMatch;
+      }
+
       const inpostRegionCanvas = cropCanvasRegion(
         renderedCanvas,
         INPOST_LOGO_REGION,
@@ -1600,6 +1779,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
     verticalOffset: number,
     nextLabelType: LabelType,
     nextShowRecipientName: boolean,
+    nextHideInpostItalySenderAddress: boolean,
   ) {
     cropRequestVersionRef.current += 1;
     const requestVersion = cropRequestVersionRef.current;
@@ -1623,38 +1803,37 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
       const sourcePageRotate =
         ((firstPage.getRotation().angle % 360) + 360) % 360;
       const pageRotate = (sourcePageRotate + nextPreset.rotate) % 360;
-      const focusCenter =
-        nextLabelType === "manualEditor"
-          ? {
-              x: pageWidth / 2,
-              y: pageHeight / 2,
-            }
-          : {
-              x: nextPreset.x + nextPreset.width / 2,
-              y: nextPreset.y + nextPreset.height / 2,
-            };
-      const embeddedRegion =
-        nextLabelType === "manualEditor"
-          ? {
-              left: 0,
-              bottom: 0,
-              right: pageWidth,
-              top: pageHeight,
-            }
-          : (() => {
-              const sourceScale = Math.max(nextPreset.scale, 0.1);
-              const sourceWidth = nextPreset.width / sourceScale;
-              const sourceHeight = nextPreset.height / sourceScale;
-              const unclampedLeft = focusCenter.x - sourceWidth / 2;
-              const unclampedBottom = focusCenter.y - sourceHeight / 2;
+      const shouldUseCenteredFullPage = usesCenteredFullPage(nextLabelType);
+      const focusCenter = shouldUseCenteredFullPage
+        ? {
+            x: pageWidth / 2,
+            y: pageHeight / 2,
+          }
+        : {
+            x: nextPreset.x + nextPreset.width / 2,
+            y: nextPreset.y + nextPreset.height / 2,
+          };
+      const embeddedRegion = shouldUseCenteredFullPage
+        ? {
+            left: 0,
+            bottom: 0,
+            right: pageWidth,
+            top: pageHeight,
+          }
+        : (() => {
+            const sourceScale = Math.max(nextPreset.scale, 0.1);
+            const sourceWidth = nextPreset.width / sourceScale;
+            const sourceHeight = nextPreset.height / sourceScale;
+            const unclampedLeft = focusCenter.x - sourceWidth / 2;
+            const unclampedBottom = focusCenter.y - sourceHeight / 2;
 
-              return {
-                left: clampValue(unclampedLeft, 0, pageWidth),
-                bottom: clampValue(unclampedBottom, 0, pageHeight),
-                right: clampValue(unclampedLeft + sourceWidth, 0, pageWidth),
-                top: clampValue(unclampedBottom + sourceHeight, 0, pageHeight),
-              };
-            })();
+            return {
+              left: clampValue(unclampedLeft, 0, pageWidth),
+              bottom: clampValue(unclampedBottom, 0, pageHeight),
+              right: clampValue(unclampedLeft + sourceWidth, 0, pageWidth),
+              top: clampValue(unclampedBottom + sourceHeight, 0, pageHeight),
+            };
+          })();
       const embeddedProcessedPage = await outputPdf.embedPage(
         firstPage,
         embeddedRegion,
@@ -1662,13 +1841,12 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
       );
       const focusWidth = embeddedProcessedPage.width;
       const focusHeight = embeddedProcessedPage.height;
-      const embeddedFocusCenter =
-        nextLabelType === "manualEditor"
-          ? focusCenter
-          : {
-              x: embeddedProcessedPage.width / 2,
-              y: embeddedProcessedPage.height / 2,
-            };
+      const embeddedFocusCenter = shouldUseCenteredFullPage
+        ? focusCenter
+        : {
+            x: embeddedProcessedPage.width / 2,
+            y: embeddedProcessedPage.height / 2,
+          };
       const rotatedFocusWidth =
         pageRotate === 90 || pageRotate === 270 ? focusHeight : focusWidth;
       const rotatedFocusHeight =
@@ -1677,7 +1855,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
         Math.min(
           OUTPUT_PAGE_WIDTH / rotatedFocusWidth,
           OUTPUT_PAGE_HEIGHT / rotatedFocusHeight,
-        ) * (nextLabelType === "manualEditor" ? nextPreset.scale : 1);
+        ) * (shouldUseCenteredFullPage ? nextPreset.scale : 1);
       const drawnWidth = embeddedProcessedPage.width * fitScale;
       const drawnHeight = embeddedProcessedPage.height * fitScale;
       const targetCenter = {
@@ -1716,6 +1894,20 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
         height: drawnHeight,
         rotate: degrees(pageRotate),
       });
+
+      if (nextLabelType === "inpostItaly" && nextHideInpostItalySenderAddress) {
+        outputPage.drawRectangle({
+          ...outputRectForSourceMask(
+            INPOST_ITALY_SENDER_ADDRESS_MASK,
+            pageWidth,
+            pageHeight,
+            pageRotate,
+            fitScale,
+            positionedPage,
+          ),
+          color: rgb(1, 1, 1),
+        });
+      }
 
       if (nextLabelType === "posteItaliane" && nextShowRecipientName) {
         const recipientName = await extractPosteItalianeRecipientName(
@@ -1887,7 +2079,10 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
       return;
     }
 
-    if (releasePointerCapture && event.currentTarget.hasPointerCapture(event.pointerId)) {
+    if (
+      releasePointerCapture &&
+      event.currentTarget.hasPointerCapture(event.pointerId)
+    ) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
 
@@ -1902,7 +2097,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
           <div className="md:shrink-0">
             <div className="lg:flex lg:items-end lg:justify-between lg:gap-6">
               <div>
-                  <div className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-[#1b6b63]">
+                <div className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-[#1b6b63]">
                   {messages.output.eyebrow}
                 </div>
                 <h2 className="text-2xl font-semibold tracking-tight text-[#082b2b]">
@@ -1989,7 +2184,9 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                       onPointerDown={handlePreviewPointerDown}
                       onPointerMove={handlePreviewPointerMove}
                       onPointerUp={(event) => finishPreviewPan(event, true)}
-                      onPointerCancel={(event) => finishPreviewPan(event, false)}
+                      onPointerCancel={(event) =>
+                        finishPreviewPan(event, false)
+                      }
                       style={previewCursorStyle}
                       className={cn(
                         "relative aspect-2/3 w-full max-w-[28rem] overflow-hidden box-border border-2 border-[#1b6b63] rounded-lg bg-white shadow-[0_14px_40px_rgba(8,43,43,0.08)] md:h-full md:w-auto md:max-w-full",
@@ -2195,7 +2392,9 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                 disabled={controlsDisabled}
               >
                 <SelectTrigger id="label-type">
-                  <SelectValue placeholder={messages.controls.chooseLabelType} />
+                  <SelectValue
+                    placeholder={messages.controls.chooseLabelType}
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {localizedLabelOptions.map((option) => (
@@ -2245,6 +2444,22 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
               </div>
             ) : null}
 
+            {labelType === "inpostItaly" ? (
+              <div className="grid h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-[1.2rem] border border-[#16302b10] bg-[#fcfdfc] px-4">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium leading-none text-[#16302b]">
+                    {messages.controls.hideSenderAddress}
+                  </div>
+                </div>
+                <Switch
+                  checked={hideInpostItalySenderAddress}
+                  onCheckedChange={setHideInpostItalySenderAddress}
+                  disabled={controlsDisabled}
+                  className="shrink-0"
+                />
+              </div>
+            ) : null}
+
             {labelType === "posteItaliane" ? (
               <div className="rounded-[1.2rem] border border-[#16302b10] bg-[#fcfdfc] px-4">
                 <div className="grid divide-y divide-[#16302b10]">
@@ -2257,7 +2472,9 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                             <button
                               type="button"
                               className="inline-flex items-center justify-center p-0 text-[#1b6b63] transition hover:text-[#14574f] focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1b6b63]/20"
-                              aria-label={messages.controls.showRecipientNameInfoLabel}
+                              aria-label={
+                                messages.controls.showRecipientNameInfoLabel
+                              }
                             >
                               <Info size={12} strokeWidth={2.2} />
                             </button>
@@ -2313,7 +2530,9 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                         }
                         disabled={controlsDisabled || !showRecipientName}
                         className="w-10 h-8 appearance-none rounded-md border border-[#16302b18] bg-white px-2 text-center text-sm leading-none text-[#16302b] outline-none transition [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none placeholder:text-[#6a8680] focus:border-[#1b6b63] focus:ring-2 focus:ring-[#1b6b63]/15 disabled:cursor-not-allowed disabled:bg-[#16302b08] disabled:text-[#6a8680]"
-                        aria-label={messages.controls.recipientNameSizeAdjustment}
+                        aria-label={
+                          messages.controls.recipientNameSizeAdjustment
+                        }
                       />
                       <Button
                         type="button"
