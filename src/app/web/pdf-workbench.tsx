@@ -139,10 +139,12 @@ const MANUAL_OFFSET_MIN = -240;
 const MANUAL_OFFSET_MAX = 240;
 const DEFAULT_USE_HALF_PAGE_BRT = true;
 const DEFAULT_SHOW_RECIPIENT_NAME = true;
+const DEFAULT_SHOW_VINTED_GO_RECIPIENT_NAME = true;
 const DEFAULT_SHOW_INPOST_FAMILY_RECIPIENT_NAME = false;
 const DEFAULT_SHOW_INPOST_ITALY_RECIPIENT_NAME = false;
 const DEFAULT_RECIPIENT_NAME_FONT_SIZE = 18;
 const DEFAULT_HIDE_POSTE_ITALIANE_SENDER_ADDRESS = false;
+const DEFAULT_HIDE_VINTED_GO_SENDER_ADDRESS = false;
 const DEFAULT_HIDE_INPOST_ITALY_SENDER_ADDRESS = false;
 const DEFAULT_SCALE_OFFSET_MIN = -0.5;
 const DEFAULT_SCALE_OFFSET_MAX = 0.5;
@@ -152,6 +154,8 @@ const ROTATION_OFFSET_MIN = -270;
 const ROTATION_OFFSET_MAX = 270;
 const USE_HALF_PAGE_BRT_STORAGE_KEY = "croplet-web-use-half-page-brt";
 const SHOW_RECIPIENT_NAME_STORAGE_KEY = "croplet-web-show-recipient-name";
+const SHOW_VINTED_GO_RECIPIENT_NAME_STORAGE_KEY =
+  "croplet-web-show-vinted-go-recipient-name";
 const SHOW_INPOST_FAMILY_RECIPIENT_NAME_STORAGE_KEY =
   "croplet-web-show-inpost-family-recipient-name";
 const SHOW_INPOST_ITALY_RECIPIENT_NAME_STORAGE_KEY =
@@ -160,6 +164,8 @@ const RECIPIENT_NAME_FONT_SIZE_STORAGE_KEY =
   "croplet-web-recipient-name-font-size";
 const HIDE_POSTE_ITALIANE_SENDER_ADDRESS_STORAGE_KEY =
   "croplet-web-hide-poste-italiane-sender-address";
+const HIDE_VINTED_GO_SENDER_ADDRESS_STORAGE_KEY =
+  "croplet-web-hide-vinted-go-sender-address";
 const HIDE_INPOST_ITALY_SENDER_ADDRESS_STORAGE_KEY =
   "croplet-web-hide-inpost-italy-sender-address";
 const INPOST_LOGO_REGION = {
@@ -190,7 +196,13 @@ const POSTE_ITALIANE_SENDER_ADDRESS_MASK = {
   x: 157,
   y: 114,
   width: 18,
-  height: 170,
+  height: 170.5,
+} as const;
+const VINTED_GO_SENDER_ADDRESS_MASK = {
+  x: 157,
+  y: 114,
+  width: 18,
+  height: 170.5,
 } as const;
 const POSTE_ITALIANE_RECIPIENT_REGION = {
   x: 0.27,
@@ -252,12 +264,12 @@ const BASE_PRESETS: Record<Exclude<LabelType, "brt">, CropPreset> = {
     scale: 1,
   },
   vintedGo: {
-    x: 9,
-    y: 556,
+    x: -6.5,
+    y: 478.5,
     width: 288,
     height: 432,
     rotate: 180,
-    scale: 1.112,
+    scale: 1.11,
   },
   inpostFamily: {
     x: 84,
@@ -307,6 +319,27 @@ function initialPreset(
 
 function usesCenteredFullPage(labelType: LabelType) {
   return labelType === "manualEditor" || labelType === "inpostItaly";
+}
+
+function usesSourceCropOffsets(labelType: LabelType) {
+  return labelType === "vintedGo";
+}
+
+function presetWithSourceCropOffsets(
+  preset: CropPreset,
+  labelType: LabelType,
+  horizontalOffset: number,
+  verticalOffset: number,
+) {
+  if (!usesSourceCropOffsets(labelType)) {
+    return preset;
+  }
+
+  return {
+    ...preset,
+    x: preset.x + horizontalOffset,
+    y: preset.y - verticalOffset,
+  };
 }
 
 function outputRectForSourceMask(
@@ -381,6 +414,23 @@ function includesAnyKeyword(text: string, keywords: string[]) {
   return keywords.some((keyword) => text.includes(keyword));
 }
 
+function isVintedGoLabel(text: string) {
+  const compactText = text.replace(/\s+/g, "");
+
+  return (
+    includesAnyKeyword(text, [
+      "vinted go",
+      "vintedgo",
+      "vinted g0",
+      "vinted ge",
+      "v lockers",
+      "vlockers",
+    ]) ||
+    compactText.includes("vintedgo") ||
+    compactText.includes("vlockers")
+  );
+}
+
 function clampRecipientNameFontSize(value: number) {
   return Math.max(10, Math.min(72, value));
 }
@@ -426,6 +476,26 @@ function getStoredShowRecipientNamePreference() {
   }
 
   return DEFAULT_SHOW_RECIPIENT_NAME;
+}
+
+function getStoredShowVintedGoRecipientNamePreference() {
+  try {
+    const storedValue = window.localStorage.getItem(
+      SHOW_VINTED_GO_RECIPIENT_NAME_STORAGE_KEY,
+    );
+
+    if (storedValue === "true") {
+      return true;
+    }
+
+    if (storedValue === "false") {
+      return false;
+    }
+  } catch {
+    // Fall back to default when storage is unavailable.
+  }
+
+  return DEFAULT_SHOW_VINTED_GO_RECIPIENT_NAME;
 }
 
 function getStoredShowInpostFamilyRecipientNamePreference() {
@@ -486,6 +556,26 @@ function getStoredHidePosteItalianeSenderAddressPreference() {
   }
 
   return DEFAULT_HIDE_POSTE_ITALIANE_SENDER_ADDRESS;
+}
+
+function getStoredHideVintedGoSenderAddressPreference() {
+  try {
+    const storedValue = window.localStorage.getItem(
+      HIDE_VINTED_GO_SENDER_ADDRESS_STORAGE_KEY,
+    );
+
+    if (storedValue === "true") {
+      return true;
+    }
+
+    if (storedValue === "false") {
+      return false;
+    }
+  } catch {
+    // Fall back to default when storage is unavailable.
+  }
+
+  return DEFAULT_HIDE_VINTED_GO_SENDER_ADDRESS;
 }
 
 function getStoredHideInpostItalySenderAddressPreference() {
@@ -614,7 +704,7 @@ function detectLabelFromExtractedText(
     return { labelType: "inpostFamily" };
   }
 
-  if (includesAnyKeyword(normalizedText, ["vinted go", "vintedgo"])) {
+  if (isVintedGoLabel(normalizedText)) {
     return { labelType: "vintedGo" };
   }
 
@@ -693,7 +783,7 @@ function cropCanvasRegion(
 
 function sanitizedNameCandidate(text: string) {
   return text
-    .replace(/[^\p{L} .'-]/gu, "")
+    .replace(/[^\p{L} ./'-]/gu, "")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -1118,8 +1208,17 @@ function outputPlacementForPreset(
   sourcePageRotate: number,
   preset: CropPreset,
   labelType: LabelType,
+  horizontalOffset = 0,
+  verticalOffset = 0,
 ) {
-  const pageRotate = (sourcePageRotate + preset.rotate) % 360;
+  const shouldUseSourceCropOffsets = usesSourceCropOffsets(labelType);
+  const cropPreset = presetWithSourceCropOffsets(
+    preset,
+    labelType,
+    horizontalOffset,
+    verticalOffset,
+  );
+  const pageRotate = (sourcePageRotate + cropPreset.rotate) % 360;
   const shouldUseCenteredFullPage = usesCenteredFullPage(labelType);
   const focusCenter = shouldUseCenteredFullPage
     ? {
@@ -1127,10 +1226,10 @@ function outputPlacementForPreset(
         y: pageHeight / 2,
       }
     : {
-        x: preset.x + preset.width / 2,
-        y: preset.y + preset.height / 2,
+        x: cropPreset.x + cropPreset.width / 2,
+        y: cropPreset.y + cropPreset.height / 2,
       };
-  const embeddedRegion = shouldUseCenteredFullPage
+  const cropFrame = shouldUseCenteredFullPage
     ? {
         left: 0,
         bottom: 0,
@@ -1138,27 +1237,31 @@ function outputPlacementForPreset(
         top: pageHeight,
       }
     : (() => {
-        const sourceScale = Math.max(preset.scale, 0.1);
-        const sourceWidth = preset.width / sourceScale;
-        const sourceHeight = preset.height / sourceScale;
-        const unclampedLeft = focusCenter.x - sourceWidth / 2;
-        const unclampedBottom = focusCenter.y - sourceHeight / 2;
+        const sourceScale = Math.max(cropPreset.scale, 0.1);
+        const sourceWidth = cropPreset.width / sourceScale;
+        const sourceHeight = cropPreset.height / sourceScale;
+        const left = focusCenter.x - sourceWidth / 2;
+        const bottom = focusCenter.y - sourceHeight / 2;
 
         return {
-          left: clampValue(unclampedLeft, 0, pageWidth),
-          bottom: clampValue(unclampedBottom, 0, pageHeight),
-          right: clampValue(unclampedLeft + sourceWidth, 0, pageWidth),
-          top: clampValue(unclampedBottom + sourceHeight, 0, pageHeight),
+          left,
+          bottom,
+          right: left + sourceWidth,
+          top: bottom + sourceHeight,
         };
       })();
-  const focusWidth = embeddedRegion.right - embeddedRegion.left;
-  const focusHeight = embeddedRegion.top - embeddedRegion.bottom;
-  const embeddedFocusCenter = shouldUseCenteredFullPage
-    ? focusCenter
-    : {
-        x: focusWidth / 2,
-        y: focusHeight / 2,
-      };
+  const embeddedRegion = {
+    left: clampValue(cropFrame.left, 0, pageWidth),
+    bottom: clampValue(cropFrame.bottom, 0, pageHeight),
+    right: clampValue(cropFrame.right, 0, pageWidth),
+    top: clampValue(cropFrame.top, 0, pageHeight),
+  };
+  const focusWidth = cropFrame.right - cropFrame.left;
+  const focusHeight = cropFrame.top - cropFrame.bottom;
+  const embeddedFocusCenter = {
+    x: focusCenter.x - embeddedRegion.left,
+    y: focusCenter.y - embeddedRegion.bottom,
+  };
   const rotatedFocusWidth =
     pageRotate === 90 || pageRotate === 270 ? focusHeight : focusWidth;
   const rotatedFocusHeight =
@@ -1167,10 +1270,14 @@ function outputPlacementForPreset(
     Math.min(
       OUTPUT_PAGE_WIDTH / rotatedFocusWidth,
       OUTPUT_PAGE_HEIGHT / rotatedFocusHeight,
-    ) * (shouldUseCenteredFullPage ? preset.scale : 1);
+    ) * (shouldUseCenteredFullPage ? cropPreset.scale : 1);
   const targetCenter = {
-    x: OUTPUT_PAGE_WIDTH / 2,
-    y: OUTPUT_PAGE_HEIGHT / 2,
+    x:
+      OUTPUT_PAGE_WIDTH / 2 +
+      (shouldUseSourceCropOffsets ? 0 : horizontalOffset),
+    y:
+      OUTPUT_PAGE_HEIGHT / 2 -
+      (shouldUseSourceCropOffsets ? 0 : verticalOffset),
   };
   const positionedPage = (() => {
     switch (pageRotate) {
@@ -1251,12 +1358,14 @@ function sourcePointForOutputPoint(
     case 90:
       return {
         x: outputPoint.y / placement.fitScale + placement.embeddedRegion.left,
-        y: -outputPoint.x / placement.fitScale + placement.embeddedRegion.bottom,
+        y:
+          -outputPoint.x / placement.fitScale + placement.embeddedRegion.bottom,
       };
     case 180:
       return {
         x: -outputPoint.x / placement.fitScale + placement.embeddedRegion.left,
-        y: -outputPoint.y / placement.fitScale + placement.embeddedRegion.bottom,
+        y:
+          -outputPoint.y / placement.fitScale + placement.embeddedRegion.bottom,
       };
     case 270:
       return {
@@ -1492,12 +1601,18 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
   const [showRecipientName, setShowRecipientName] = useState(
     DEFAULT_SHOW_RECIPIENT_NAME,
   );
+  const [showVintedGoRecipientName, setShowVintedGoRecipientName] = useState(
+    DEFAULT_SHOW_VINTED_GO_RECIPIENT_NAME,
+  );
   const [showInpostFamilyRecipientName, setShowInpostFamilyRecipientName] =
     useState(DEFAULT_SHOW_INPOST_FAMILY_RECIPIENT_NAME);
   const [showInpostItalyRecipientName, setShowInpostItalyRecipientName] =
     useState(DEFAULT_SHOW_INPOST_ITALY_RECIPIENT_NAME);
   const [hidePosteItalianeSenderAddress, setHidePosteItalianeSenderAddress] =
     useState(DEFAULT_HIDE_POSTE_ITALIANE_SENDER_ADDRESS);
+  const [hideVintedGoSenderAddress, setHideVintedGoSenderAddress] = useState(
+    DEFAULT_HIDE_VINTED_GO_SENDER_ADDRESS,
+  );
   const [hideInpostItalySenderAddress, setHideInpostItalySenderAddress] =
     useState(DEFAULT_HIDE_INPOST_ITALY_SENDER_ADDRESS);
   const [recipientNameFontSize, setRecipientNameFontSize] = useState(
@@ -1523,7 +1638,9 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
       ? showInpostItalyRecipientName
       : labelType === "inpostFamily"
         ? showInpostFamilyRecipientName
-        : showRecipientName;
+        : labelType === "vintedGo"
+          ? showVintedGoRecipientName
+          : showRecipientName;
 
   const basePreset = useMemo(
     () => initialPreset(labelType, useHalfPageBRT),
@@ -1545,9 +1662,11 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
       verticalOffset: number,
       nextLabelType: LabelType,
       nextShowRecipientName: boolean,
+      nextShowVintedGoRecipientName: boolean,
       nextShowInpostFamilyRecipientName: boolean,
       nextShowInpostItalyRecipientName: boolean,
       nextHidePosteItalianeSenderAddress: boolean,
+      nextHideVintedGoSenderAddress: boolean,
       nextHideInpostItalySenderAddress: boolean,
     ) => {
       void cropPdf(
@@ -1557,9 +1676,11 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
         verticalOffset,
         nextLabelType,
         nextShowRecipientName,
+        nextShowVintedGoRecipientName,
         nextShowInpostFamilyRecipientName,
         nextShowInpostItalyRecipientName,
         nextHidePosteItalianeSenderAddress,
+        nextHideVintedGoSenderAddress,
         nextHideInpostItalySenderAddress,
       );
     },
@@ -1731,6 +1852,9 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
       storedUseHalfPageBrtPreference.hasStoredValue;
     setUseHalfPageBRT(storedUseHalfPageBrtPreference.value);
     setShowRecipientName(getStoredShowRecipientNamePreference());
+    setShowVintedGoRecipientName(
+      getStoredShowVintedGoRecipientNamePreference(),
+    );
     setShowInpostFamilyRecipientName(
       getStoredShowInpostFamilyRecipientNamePreference(),
     );
@@ -1739,6 +1863,9 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
     );
     setHidePosteItalianeSenderAddress(
       getStoredHidePosteItalianeSenderAddressPreference(),
+    );
+    setHideVintedGoSenderAddress(
+      getStoredHideVintedGoSenderAddressPreference(),
     );
     setHideInpostItalySenderAddress(
       getStoredHideInpostItalySenderAddressPreference(),
@@ -1786,6 +1913,27 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
       // Ignore persistence failures and keep current session state.
     }
   }, [hasLoadedControlPreferences, showRecipientName]);
+
+  useEffect(() => {
+    if (!hasLoadedControlPreferences) {
+      return;
+    }
+
+    try {
+      if (showVintedGoRecipientName === DEFAULT_SHOW_VINTED_GO_RECIPIENT_NAME) {
+        window.localStorage.removeItem(
+          SHOW_VINTED_GO_RECIPIENT_NAME_STORAGE_KEY,
+        );
+      } else {
+        window.localStorage.setItem(
+          SHOW_VINTED_GO_RECIPIENT_NAME_STORAGE_KEY,
+          String(showVintedGoRecipientName),
+        );
+      }
+    } catch {
+      // Ignore persistence failures and keep current session state.
+    }
+  }, [hasLoadedControlPreferences, showVintedGoRecipientName]);
 
   useEffect(() => {
     if (!hasLoadedControlPreferences) {
@@ -1865,6 +2013,27 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
     }
 
     try {
+      if (hideVintedGoSenderAddress === DEFAULT_HIDE_VINTED_GO_SENDER_ADDRESS) {
+        window.localStorage.removeItem(
+          HIDE_VINTED_GO_SENDER_ADDRESS_STORAGE_KEY,
+        );
+      } else {
+        window.localStorage.setItem(
+          HIDE_VINTED_GO_SENDER_ADDRESS_STORAGE_KEY,
+          String(hideVintedGoSenderAddress),
+        );
+      }
+    } catch {
+      // Ignore persistence failures and keep current session state.
+    }
+  }, [hasLoadedControlPreferences, hideVintedGoSenderAddress]);
+
+  useEffect(() => {
+    if (!hasLoadedControlPreferences) {
+      return;
+    }
+
+    try {
       if (
         hideInpostItalySenderAddress ===
         DEFAULT_HIDE_INPOST_ITALY_SENDER_ADDRESS
@@ -1914,14 +2083,17 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
       offsetY,
       labelType,
       showRecipientName,
+      showVintedGoRecipientName,
       showInpostFamilyRecipientName,
       showInpostItalyRecipientName,
       hidePosteItalianeSenderAddress,
+      hideVintedGoSenderAddress,
       hideInpostItalySenderAddress,
     );
   }, [
     file,
     hidePosteItalianeSenderAddress,
+    hideVintedGoSenderAddress,
     hideInpostItalySenderAddress,
     labelType,
     offsetX,
@@ -1931,6 +2103,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
     showInpostFamilyRecipientName,
     showInpostItalyRecipientName,
     showRecipientName,
+    showVintedGoRecipientName,
   ]);
 
   useEffect(() => {
@@ -2265,7 +2438,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
         baseViewport.height,
       );
 
-      if (textMatch) {
+      if (textMatch && textMatch.labelType !== "posteItaliane") {
         labelDetectionCacheRef.current.set(cacheKey, textMatch);
         return textMatch;
       }
@@ -2297,6 +2470,11 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
         baseViewport.height,
       );
 
+      if (ocrMatch?.labelType === "vintedGo") {
+        labelDetectionCacheRef.current.set(cacheKey, ocrMatch);
+        return ocrMatch;
+      }
+
       if (ocrMatch?.labelType === "inpostItaly") {
         labelDetectionCacheRef.current.set(cacheKey, ocrMatch);
         return ocrMatch;
@@ -2324,8 +2502,9 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
         }
       }
 
-      labelDetectionCacheRef.current.set(cacheKey, ocrMatch);
-      return ocrMatch;
+      const fallbackMatch = ocrMatch ?? textMatch;
+      labelDetectionCacheRef.current.set(cacheKey, fallbackMatch);
+      return fallbackMatch;
     } catch {
       labelDetectionCacheRef.current.set(cacheKey, null);
       return null;
@@ -2337,8 +2516,12 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
   async function extractPosteItalianeRecipientName(
     nextFile: File,
     nextPreset: CropPreset,
+    cacheLabelType: Extract<
+      LabelType,
+      "posteItaliane" | "vintedGo"
+    > = "posteItaliane",
   ) {
-    const cacheKey = `posteItaliane:${fileCacheKey(nextFile)}`;
+    const cacheKey = `${cacheLabelType}:${fileCacheKey(nextFile)}`;
     const cachedRecipientName = recipientNameCacheRef.current.get(cacheKey);
 
     if (cachedRecipientName !== undefined) {
@@ -2708,9 +2891,11 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
     verticalOffset: number,
     nextLabelType: LabelType,
     nextShowRecipientName: boolean,
+    nextShowVintedGoRecipientName: boolean,
     nextShowInpostFamilyRecipientName: boolean,
     nextShowInpostItalyRecipientName: boolean,
     nextHidePosteItalianeSenderAddress: boolean,
+    nextHideVintedGoSenderAddress: boolean,
     nextHideInpostItalySenderAddress: boolean,
   ) {
     cropRequestVersionRef.current += 1;
@@ -2734,90 +2919,24 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
       const { width: pageWidth, height: pageHeight } = firstPage.getSize();
       const sourcePageRotate =
         ((firstPage.getRotation().angle % 360) + 360) % 360;
-      const pageRotate = (sourcePageRotate + nextPreset.rotate) % 360;
-      const shouldUseCenteredFullPage = usesCenteredFullPage(nextLabelType);
-      const focusCenter = shouldUseCenteredFullPage
-        ? {
-            x: pageWidth / 2,
-            y: pageHeight / 2,
-          }
-        : {
-            x: nextPreset.x + nextPreset.width / 2,
-            y: nextPreset.y + nextPreset.height / 2,
-          };
-      const embeddedRegion = shouldUseCenteredFullPage
-        ? {
-            left: 0,
-            bottom: 0,
-            right: pageWidth,
-            top: pageHeight,
-          }
-        : (() => {
-            const sourceScale = Math.max(nextPreset.scale, 0.1);
-            const sourceWidth = nextPreset.width / sourceScale;
-            const sourceHeight = nextPreset.height / sourceScale;
-            const unclampedLeft = focusCenter.x - sourceWidth / 2;
-            const unclampedBottom = focusCenter.y - sourceHeight / 2;
-
-            return {
-              left: clampValue(unclampedLeft, 0, pageWidth),
-              bottom: clampValue(unclampedBottom, 0, pageHeight),
-              right: clampValue(unclampedLeft + sourceWidth, 0, pageWidth),
-              top: clampValue(unclampedBottom + sourceHeight, 0, pageHeight),
-            };
-          })();
+      const placement = outputPlacementForPreset(
+        pageWidth,
+        pageHeight,
+        sourcePageRotate,
+        nextPreset,
+        nextLabelType,
+        horizontalOffset,
+        verticalOffset,
+      );
+      const { embeddedRegion, fitScale, pageRotate, positionedPage } =
+        placement;
       const embeddedProcessedPage = await outputPdf.embedPage(
         firstPage,
         embeddedRegion,
         [1, 0, 0, 1, -embeddedRegion.left, -embeddedRegion.bottom],
       );
-      const focusWidth = embeddedProcessedPage.width;
-      const focusHeight = embeddedProcessedPage.height;
-      const embeddedFocusCenter = shouldUseCenteredFullPage
-        ? focusCenter
-        : {
-            x: embeddedProcessedPage.width / 2,
-            y: embeddedProcessedPage.height / 2,
-          };
-      const rotatedFocusWidth =
-        pageRotate === 90 || pageRotate === 270 ? focusHeight : focusWidth;
-      const rotatedFocusHeight =
-        pageRotate === 90 || pageRotate === 270 ? focusWidth : focusHeight;
-      const fitScale =
-        Math.min(
-          OUTPUT_PAGE_WIDTH / rotatedFocusWidth,
-          OUTPUT_PAGE_HEIGHT / rotatedFocusHeight,
-        ) * (shouldUseCenteredFullPage ? nextPreset.scale : 1);
       const drawnWidth = embeddedProcessedPage.width * fitScale;
       const drawnHeight = embeddedProcessedPage.height * fitScale;
-      const targetCenter = {
-        x: OUTPUT_PAGE_WIDTH / 2 + horizontalOffset,
-        y: OUTPUT_PAGE_HEIGHT / 2 - verticalOffset,
-      };
-      const positionedPage = (() => {
-        switch (pageRotate) {
-          case 90:
-            return {
-              x: targetCenter.x + embeddedFocusCenter.y * fitScale,
-              y: targetCenter.y - embeddedFocusCenter.x * fitScale,
-            };
-          case 180:
-            return {
-              x: targetCenter.x + embeddedFocusCenter.x * fitScale,
-              y: targetCenter.y + embeddedFocusCenter.y * fitScale,
-            };
-          case 270:
-            return {
-              x: targetCenter.x - embeddedFocusCenter.y * fitScale,
-              y: targetCenter.y + embeddedFocusCenter.x * fitScale,
-            };
-          default:
-            return {
-              x: targetCenter.x - embeddedFocusCenter.x * fitScale,
-              y: targetCenter.y - embeddedFocusCenter.y * fitScale,
-            };
-        }
-      })();
 
       outputPage.drawPage(embeddedProcessedPage, {
         x: positionedPage.x,
@@ -2838,22 +2957,32 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
           BASE_PRESETS.posteItaliane,
           "posteItaliane",
         );
-        const currentPlacement = {
-          embeddedRegion,
-          fitScale,
-          pageRotate,
-          positionedPage,
-        };
         const senderAddressSourceBounds = sourceBoundsForOutputRect(
           POSTE_ITALIANE_SENDER_ADDRESS_MASK,
           basePlacement,
         );
 
         outputPage.drawRectangle({
-          ...outputRectForSourceBounds(
-            senderAddressSourceBounds,
-            currentPlacement,
-          ),
+          ...outputRectForSourceBounds(senderAddressSourceBounds, placement),
+          color: rgb(1, 1, 1),
+        });
+      }
+
+      if (nextLabelType === "vintedGo" && nextHideVintedGoSenderAddress) {
+        const basePlacement = outputPlacementForPreset(
+          pageWidth,
+          pageHeight,
+          sourcePageRotate,
+          BASE_PRESETS.vintedGo,
+          "vintedGo",
+        );
+        const senderAddressSourceBounds = sourceBoundsForOutputRect(
+          VINTED_GO_SENDER_ADDRESS_MASK,
+          basePlacement,
+        );
+
+        outputPage.drawRectangle({
+          ...outputRectForSourceBounds(senderAddressSourceBounds, placement),
           color: rgb(1, 1, 1),
         });
       }
@@ -2872,10 +3001,14 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
         });
       }
 
-      if (nextLabelType === "posteItaliane" && nextShowRecipientName) {
+      if (
+        (nextLabelType === "posteItaliane" && nextShowRecipientName) ||
+        (nextLabelType === "vintedGo" && nextShowVintedGoRecipientName)
+      ) {
         const recipientName = await extractPosteItalianeRecipientName(
           nextFile,
           nextPreset,
+          nextLabelType,
         );
 
         if (recipientName) {
@@ -3478,11 +3611,13 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
             ) : null}
 
             {labelType === "posteItaliane" ||
+            labelType === "vintedGo" ||
             labelType === "inpostFamily" ||
             labelType === "inpostItaly" ? (
               <div className="rounded-[1.2rem] border border-[#16302b10] bg-[#fcfdfc] px-4">
                 <div className="grid divide-y divide-[#16302b10]">
                   {labelType === "posteItaliane" ||
+                  labelType === "vintedGo" ||
                   labelType === "inpostItaly" ? (
                     <div className="grid h-12 grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
                       <div className="min-w-0">
@@ -3492,14 +3627,18 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                       </div>
                       <Switch
                         checked={
-                          labelType === "posteItaliane"
-                            ? hidePosteItalianeSenderAddress
-                            : hideInpostItalySenderAddress
+                          labelType === "inpostItaly"
+                            ? hideInpostItalySenderAddress
+                            : labelType === "vintedGo"
+                              ? hideVintedGoSenderAddress
+                              : hidePosteItalianeSenderAddress
                         }
                         onCheckedChange={
-                          labelType === "posteItaliane"
-                            ? setHidePosteItalianeSenderAddress
-                            : setHideInpostItalySenderAddress
+                          labelType === "inpostItaly"
+                            ? setHideInpostItalySenderAddress
+                            : labelType === "vintedGo"
+                              ? setHideVintedGoSenderAddress
+                              : setHidePosteItalianeSenderAddress
                         }
                         disabled={controlsDisabled}
                         className="shrink-0"
@@ -3541,7 +3680,9 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
                           ? setShowInpostItalyRecipientName
                           : labelType === "inpostFamily"
                             ? setShowInpostFamilyRecipientName
-                            : setShowRecipientName
+                            : labelType === "vintedGo"
+                              ? setShowVintedGoRecipientName
+                              : setShowRecipientName
                       }
                       disabled={controlsDisabled}
                       className="shrink-0"
