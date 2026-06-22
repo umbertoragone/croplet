@@ -2438,7 +2438,7 @@ export default function PdfWorkbench({ messages }: PdfWorkbenchProps) {
         baseViewport.height,
       );
 
-      if (textMatch && textMatch.labelType !== "posteItaliane") {
+      if (textMatch) {
         labelDetectionCacheRef.current.set(cacheKey, textMatch);
         return textMatch;
       }
